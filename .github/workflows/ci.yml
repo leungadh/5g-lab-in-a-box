@@ -1,0 +1,93 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml scapy pandas pyarrow
+          sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Python syntax (py_compile)
+        run: |
+          python -m py_compile \
+            attacks/_common.py \
+            attacks/gtpu/*.py \
+            attacks/pfcp/*.py \
+            capture/extract_features.py
+
+      - name: Shell syntax (bash -n)
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            bash -n "$f" && echo "OK  $f" || { echo "FAIL $f"; fail=1; }
+          done < <(find . -name '*.sh')
+          exit $fail
+
+      - name: Shellcheck (advisory)
+        continue-on-error: true
+        run: find . -name '*.sh' -exec shellcheck {} +
+
+      - name: YAML validity
+        run: |
+          python - <<'PY'
+          import glob, sys, yaml
+          files = (["deploy/open5gs/docker-compose.yml", "infra/ansible/playbook.yml"]
+                   + glob.glob("deploy/open5gs/configs/*.example")
+                   + glob.glob("deploy/ran/ueransim/*.yaml"))
+          bad = False
+          for f in files:
+              try:
+                  list(yaml.safe_load_all(open(f))); print("OK ", f)
+              except Exception as e:
+                  bad = True; print("FAIL", f, e)
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: Attack guard refuses public / unacknowledged targets
+        run: |
+          set -e
+          out=$(python attacks/gtpu/gtpu_flood.py --target 8.8.8.8 --i-own-this-lab --count 1 2>&1 || true)
+          echo "$out" | grep -q "refusing" || { echo "guard failed to block public IP"; exit 1; }
+          out=$(python attacks/gtpu/gtpu_flood.py --target 127.0.0.1 --count 1 2>&1 || true)
+          echo "$out" | grep -q "refusing" || { echo "guard failed to block missing ack"; exit 1; }
+          echo "guard OK"
+
+      - name: Feature pipeline end-to-end (synthetic pcap)
+        run: |
+          mkdir -p capture/pcaps capture/data
+          python - <<'PY'
+          import struct
+          from scapy.all import wrpcap, Ether, IP, UDP, Raw
+          def gtpu(teid, mtype=0xFF, flags=0x30, body=b"\x45"+b"\0"*40):
+              return struct.pack("!BBHI", flags, mtype, len(body), teid) + body
+          pkts = [Ether()/IP(src="10.45.0.2", dst="10.45.0.1")/UDP(sport=2152, dport=2152)/Raw(gtpu(0x10)) for _ in range(20)]
+          pkts.append(Ether()/IP()/UDP(sport=2152, dport=2152)/Raw(gtpu(0x99, mtype=0xF7, flags=0x00)))
+          pfcp = struct.pack("!BBH", 0x21, 50, 12) + struct.pack("!Q", 1) + b"\0\0\0\0"
+          pkts.append(Ether()/IP()/UDP(sport=8805, dport=8805)/Raw(pfcp))
+          wrpcap("capture/pcaps/gtpu_malformed_20260101-000000.pcap", pkts)
+          PY
+          python capture/extract_features.py "capture/pcaps/*.pcap" -o capture/data/features.parquet --window 1.0
+          python - <<'PY'
+          import pandas as pd
+          df = pd.read_parquet("capture/data/features.parquet")
+          assert len(df) >= 1, "no feature rows"
+          assert "gtpu_malformed" in set(df["label"]), "label not parsed"
+          assert df["gtpu_malformed_frac"].max() > 0, "malformed packet not flagged"
+          print("feature pipeline OK\n", df.to_string(index=False))
+          PY

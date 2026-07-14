@@ -1,5 +1,7 @@
 # 5G Core Lab-in-a-Box
 
+![ci](https://github.com/leungadh/5g-lab-in-a-box/actions/workflows/ci.yml/badge.svg)
+
 A reproducible, infrastructure-as-code 5G Standalone (SA) core network you can stand up on a single host, drive with a simulated RAN, and attack with a curated set of red-team scripts. Built as a credibility artifact for 5G security advisory work and as the traffic-generation front-end for a downstream GTP/PFCP anomaly-detection model.
 
 > **Scope & ethics.** Everything here targets a 5G core *you own and operate* inside this lab. The attack scripts generate malformed and high-volume N3/N4 traffic against `localhost`/lab addresses only. Do not point them at any network you are not authorized to test. See [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md).
