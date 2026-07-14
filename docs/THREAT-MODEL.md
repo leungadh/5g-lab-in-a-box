@@ -4,6 +4,12 @@
 
 Every script in `attacks/` is written to target the **local lab core you control**. Default targets are `127.0.0.1` / the lab's docker subnet. Do not repoint them at production, a carrier network, or any system you are not explicitly authorized to test. Unauthorized interference with telecom infrastructure is illegal in most jurisdictions.
 
+## Attack & detection flow
+
+![Attack and detection flow across N3/N4](diagrams/5g-attack-flow.svg)
+
+Each attack script generates labeled traffic against a target interface; the capture tool taps it, features are extracted per window, and the model scores each window. Because the lab knows which script is running, every window is labeled by construction.
+
 ## What we model
 
 The lab reproduces adversary techniques against the two data-plane/signaling interfaces most exposed in a real deployment when perimeter assumptions fail (rogue gNB, compromised transport, malicious peer):

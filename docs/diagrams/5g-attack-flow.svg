@@ -1,0 +1,128 @@
+<svg viewBox="0 0 1100 800" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">5G lab attack and detection flow</title>
+  <desc id="d">Attack scripts inject malformed or high-volume traffic onto the N3 and N4 interfaces of the Open5GS core; the capture tool taps that traffic, the feature extractor parses it, and a model scores each window to raise an alert. A table maps each attack class to its target interface, its observable effect, and the detection feature it produces.</desc>
+
+  <defs>
+    <marker id="fArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5F5E5A"/></marker>
+    <marker id="fCoral" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#D85A30"/></marker>
+  </defs>
+
+  <rect x="0" y="0" width="1100" height="800" fill="#FBFAF7"/>
+  <text x="40" y="46" font-size="25" font-weight="700" fill="#2C2C2A">Attack &amp; Detection Flow — N3 / N4 Threat Surface</text>
+  <text x="40" y="72" font-size="14.5" fill="#5F5E5A">Generate labeled attack traffic · tap it on the wire · extract features · score each window</text>
+
+  <!-- ===================== PIPELINE SPINE ===================== -->
+  <!-- n1 attacks -->
+  <rect x="40" y="120" width="150" height="86" rx="11" fill="#D85A30"/>
+  <text x="115" y="152" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">attacks/</text>
+  <text x="115" y="172" text-anchor="middle" font-size="10.8" fill="#FAECE7">generate malformed</text>
+  <text x="115" y="187" text-anchor="middle" font-size="10.8" fill="#FAECE7">&amp; flood traffic</text>
+
+  <!-- n2 core surface -->
+  <rect x="250" y="120" width="170" height="86" rx="11" fill="#EAF2FB" stroke="#85B7EB" stroke-width="1.5"/>
+  <text x="335" y="150" text-anchor="middle" font-size="14.5" font-weight="700" fill="#0C447C">Open5GS core</text>
+  <text x="335" y="171" text-anchor="middle" font-size="11.5" fill="#185FA5">N3 (GTP-U) surface</text>
+  <text x="335" y="188" text-anchor="middle" font-size="11.5" fill="#1D9E75">N4 (PFCP) surface</text>
+
+  <!-- n3 capture -->
+  <rect x="470" y="120" width="150" height="86" rx="11" fill="#993C1D"/>
+  <text x="545" y="152" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">capture/</text>
+  <text x="545" y="172" text-anchor="middle" font-size="10.8" fill="#F5C4B3">tcpdump N3 + N4</text>
+  <text x="545" y="187" text-anchor="middle" font-size="10.8" fill="#F5C4B3">rotating pcaps</text>
+
+  <!-- n4 features -->
+  <rect x="670" y="120" width="160" height="86" rx="11" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="1.5"/>
+  <text x="750" y="152" text-anchor="middle" font-size="14" font-weight="700" fill="#2C2C2A">extract_features</text>
+  <text x="750" y="172" text-anchor="middle" font-size="10.8" fill="#5F5E5A">windowed rows</text>
+  <text x="750" y="187" text-anchor="middle" font-size="10.8" fill="#5F5E5A">+ label</text>
+
+  <!-- n5 model/alert -->
+  <rect x="880" y="120" width="160" height="86" rx="11" fill="#1D9E75"/>
+  <text x="960" y="150" text-anchor="middle" font-size="14.5" font-weight="700" fill="#fff">model → ALERT</text>
+  <text x="960" y="171" text-anchor="middle" font-size="10.8" fill="#E1F5EE">score each window</text>
+  <text x="960" y="187" text-anchor="middle" font-size="10.8" fill="#E1F5EE">flag anomalies (Idea 2)</text>
+
+  <!-- spine arrows -->
+  <path d="M190 163 L 248 163" fill="none" stroke="#D85A30" stroke-width="2.4" marker-end="url(#fCoral)"/>
+  <text x="219" y="153" text-anchor="middle" font-size="10.5" font-style="italic" fill="#993C1D">inject</text>
+  <path d="M420 163 L 468 163" fill="none" stroke="#D85A30" stroke-width="2.4" marker-end="url(#fCoral)"/>
+  <text x="444" y="153" text-anchor="middle" font-size="10.5" font-style="italic" fill="#993C1D">tap</text>
+  <path d="M620 163 L 668 163" fill="none" stroke="#5F5E5A" stroke-width="2.2" marker-end="url(#fArrow)"/>
+  <text x="644" y="153" text-anchor="middle" font-size="10.5" font-style="italic" fill="#5F5E5A">parse</text>
+  <path d="M830 163 L 878 163" fill="none" stroke="#5F5E5A" stroke-width="2.2" marker-end="url(#fArrow)"/>
+  <text x="854" y="153" text-anchor="middle" font-size="10.5" font-style="italic" fill="#5F5E5A">score</text>
+
+  <text x="40" y="248" font-size="13" fill="#5F5E5A">Because the lab knows which script is running, every capture window is <tspan font-weight="700" fill="#2C2C2A">labeled by construction</tspan> — a clean,</text>
+  <text x="40" y="268" font-size="13" fill="#5F5E5A">balanced dataset the detector can train on and be evaluated against.</text>
+
+  <!-- ===================== ATTACK MATRIX ===================== -->
+  <text x="40" y="300" font-size="16" font-weight="700" fill="#2C2C2A">Attack classes → what breaks → detection signal</text>
+
+  <!-- header -->
+  <rect x="40" y="316" width="1000" height="40" rx="7" fill="#2C2C2A"/>
+  <text x="70" y="341" font-size="12.5" font-weight="700" fill="#fff">Attack class</text>
+  <text x="330" y="341" font-size="12.5" font-weight="700" fill="#fff">Interface</text>
+  <text x="470" y="341" font-size="12.5" font-weight="700" fill="#fff">What breaks (observable effect)</text>
+  <text x="790" y="341" font-size="12.5" font-weight="700" fill="#fff">Detection feature flagged</text>
+
+  <!-- rows -->
+  <g font-size="12" fill="#2C2C2A">
+    <!-- row 1 -->
+    <rect x="40" y="358" width="1000" height="60" fill="#FFFFFF" stroke="#E7E5DD"/>
+    <rect x="40" y="358" width="6" height="60" fill="#0F6E56"/>
+    <text x="70" y="384" font-size="12.5" font-weight="700">malformed GTP-U</text>
+    <text x="70" y="403" font-size="10.8" fill="#5F5E5A">gtpu/malformed_gtpu.py</text>
+    <rect x="322" y="378" width="86" height="22" rx="5" fill="#E1F5EE"/><text x="365" y="393" text-anchor="middle" font-size="11" font-weight="700" fill="#0F6E56">N3 · GTP-U</text>
+    <text x="470" y="384" font-size="11.5">Invalid msg type, bad TEID, broken</text>
+    <text x="470" y="401" font-size="11.5">extension headers → decode failures</text>
+    <text x="790" y="392" font-size="11.5" font-weight="600" fill="#0F6E56">gtpu_malformed_frac ↑</text>
+
+    <!-- row 2 -->
+    <rect x="40" y="418" width="1000" height="60" fill="#FAFAF7" stroke="#E7E5DD"/>
+    <rect x="40" y="418" width="6" height="60" fill="#0F6E56"/>
+    <text x="70" y="444" font-size="12.5" font-weight="700">GTP-U tunnel flood</text>
+    <text x="70" y="463" font-size="10.8" fill="#5F5E5A">gtpu/gtpu_flood.py</text>
+    <rect x="322" y="438" width="86" height="22" rx="5" fill="#E1F5EE"/><text x="365" y="453" text-anchor="middle" font-size="11" font-weight="700" fill="#0F6E56">N3 · GTP-U</text>
+    <text x="470" y="444" font-size="11.5">High-rate G-PDU injection to one</text>
+    <text x="470" y="461" font-size="11.5">TEID → per-tunnel volume spike</text>
+    <text x="790" y="452" font-size="11.5" font-weight="600" fill="#0F6E56">pkt_rate · bytes_total ↑</text>
+
+    <!-- row 3 -->
+    <rect x="40" y="478" width="1000" height="60" fill="#FFFFFF" stroke="#E7E5DD"/>
+    <rect x="40" y="478" width="6" height="60" fill="#185FA5"/>
+    <text x="70" y="504" font-size="12.5" font-weight="700">PFCP session flood</text>
+    <text x="70" y="523" font-size="10.8" fill="#5F5E5A">pfcp/pfcp_session_flood.py</text>
+    <rect x="322" y="498" width="86" height="22" rx="5" fill="#E6F1FB"/><text x="365" y="513" text-anchor="middle" font-size="11" font-weight="700" fill="#185FA5">N4 · PFCP</text>
+    <text x="470" y="504" font-size="11.5">Rapid Session Establishment Reqs</text>
+    <text x="470" y="521" font-size="11.5">→ UPF resource pressure</text>
+    <text x="790" y="512" font-size="11.5" font-weight="600" fill="#185FA5">pfcp_est_req ↑</text>
+
+    <!-- row 4 -->
+    <rect x="40" y="538" width="1000" height="60" fill="#FAFAF7" stroke="#E7E5DD"/>
+    <rect x="40" y="538" width="6" height="60" fill="#185FA5"/>
+    <text x="70" y="564" font-size="12.5" font-weight="700">PFCP association abuse</text>
+    <text x="70" y="583" font-size="10.8" fill="#5F5E5A">pfcp/pfcp_association_abuse.py</text>
+    <rect x="322" y="558" width="86" height="22" rx="5" fill="#E6F1FB"/><text x="365" y="573" text-anchor="middle" font-size="11" font-weight="700" fill="#185FA5">N4 · PFCP</text>
+    <text x="470" y="564" font-size="11.5">Assoc Setup churn + heartbeat</text>
+    <text x="470" y="581" font-size="11.5">manipulation → unstable N4 state</text>
+    <text x="790" y="572" font-size="11.5" font-weight="600" fill="#185FA5">pfcp_assoc_req · pfcp_heartbeat ↑</text>
+
+    <!-- row 5 -->
+    <rect x="40" y="598" width="1000" height="60" fill="#FFFFFF" stroke="#E7E5DD"/>
+    <rect x="40" y="598" width="6" height="60" fill="#7F77DD"/>
+    <text x="70" y="624" font-size="12.5" font-weight="700">signaling storm</text>
+    <text x="70" y="643" font-size="10.8" fill="#5F5E5A">signaling/registration_storm.sh</text>
+    <rect x="322" y="618" width="86" height="22" rx="5" fill="#EEEDFE"/><text x="365" y="633" text-anchor="middle" font-size="11" font-weight="700" fill="#3C3489">N2 · NGAP</text>
+    <text x="470" y="624" font-size="11.5">Repeated UE register / auth attach</text>
+    <text x="470" y="641" font-size="11.5">→ churn on the AMF</text>
+    <text x="790" y="632" font-size="11.5" font-weight="600" fill="#3C3489">registration rate ↑</text>
+  </g>
+
+  <!-- plane legend -->
+  <text x="40" y="700" font-size="12" font-weight="700" fill="#2C2C2A">Interface plane:</text>
+  <rect x="150" y="690" width="14" height="14" rx="3" fill="#0F6E56"/><text x="170" y="702" font-size="11.5" fill="#444441">N3 user plane</text>
+  <rect x="290" y="690" width="14" height="14" rx="3" fill="#185FA5"/><text x="310" y="702" font-size="11.5" fill="#444441">N4 control plane</text>
+  <rect x="450" y="690" width="14" height="14" rx="3" fill="#7F77DD"/><text x="470" y="702" font-size="11.5" fill="#444441">N2 signaling</text>
+
+  <text x="40" y="748" font-size="11.5" font-style="italic" fill="#5F5E5A">All scripts refuse to run unless the target is a loopback/RFC-1918 lab address and --i-own-this-lab is passed. See docs/THREAT-MODEL.md.</text>
+</svg>

@@ -6,6 +6,12 @@ A reproducible, infrastructure-as-code 5G Standalone (SA) core network you can s
 
 > **Scope & ethics.** Everything here targets a 5G core *you own and operate* inside this lab. The attack scripts generate malformed and high-volume N3/N4 traffic against `localhost`/lab addresses only. Do not point them at any network you are not authorized to test. See [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md).
 
+## Architecture at a glance
+
+![5G SA core architecture and traffic flow](docs/diagrams/5g-architecture.svg)
+
+RAN (UE → gNB) into the Open5GS control plane, down to the UPF user plane, out to the data network — with the lab security tooling attaching at the N3 (GTP-U) and N4 (PFCP) interfaces. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full component and data-flow view.
+
 ---
 
 ## Why this stack
@@ -37,13 +43,20 @@ The lab defaults to Open5GS. free5GC is a supported alternate so the attack/capt
 ├── capture/           # N3/N4 packet capture + feature extraction
 ├── scripts/           # bootstrap / teardown / helpers
 ├── tests/             # smoke tests
-└── docs/              # architecture, roadmap, threat model
+└── docs/              # architecture, platform, roadmap, threat model
+    └── diagrams/      # architecture SVG/PNG
 ```
+
+## Prerequisites
+
+Runs on a native **x86-64 Ubuntu 22.04/24.04** host (bare metal or a full Linux VM). It will **not** run on Docker Desktop for Mac/Windows — the Open5GS UPF needs the `gtp5g` Linux kernel module, which requires a real, modifiable kernel (≥ 5.4).
+
+See **[`docs/PLATFORM.md`](docs/PLATFORM.md)** for the full appliance build: hardware sizing, OS prep, the `gtp5g` module, UERANSIM, configuration, and troubleshooting. `make bootstrap` automates the host prep once the OS is in place.
 
 ## Quick start
 
 ```bash
-# 0. Prep the host (docker, kernel modules, sysctl). One-time.
+# 0. Prep the host (docker, kernel modules, sysctl). One-time. See docs/PLATFORM.md.
 make bootstrap
 
 # 1. Bring up the Open5GS core + WebUI
@@ -65,7 +78,12 @@ make capture DURATION=300
 make down
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the component/data-flow view and [`docs/ROADMAP.md`](docs/ROADMAP.md) for milestones, including the handoff to **Idea 2 (GTP/PFCP anomaly detector)**.
+## Documentation
+
+- [`docs/PLATFORM.md`](docs/PLATFORM.md) — prepare the Ubuntu appliance and run the lab, step by step.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — components, interfaces, and the capture → model data flow.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — milestones from empty host to a labeled dataset, including the handoff to **Idea 2 (GTP/PFCP anomaly detector)**.
+- [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) — scope of use, attack classes, and why they map to real MNO risk.
 
 ## Status
 
