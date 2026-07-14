@@ -32,10 +32,14 @@ Milestones from empty host to a labeled dataset feeding Idea 2. Each phase has a
 - **DoD:** `terraform apply && make bootstrap && make up && make smoke-test` from nothing.
 
 ## Phase 5 — Handoff to Idea 2 (GTP/PFCP anomaly detector)
-- [ ] Dataset schema frozen and documented (`capture/FEATURES.md`).
-- [ ] Baseline model (IsolationForest / simple autoencoder) trained on CPU as a sanity check.
+- [x] Dataset schema frozen and documented (`capture/FEATURES.md`).
+- [x] Baseline model (IsolationForest + optional autoencoder) built in `detector/`, verified on synthetic data (ROC-AUC ~0.985) as a CPU sanity check.
+- [ ] Run the baseline on **real** captures; tune threshold/contamination.
+- [ ] Add an N2/NGAP registration-rate feature so `signaling_storm` becomes detectable (current known gap).
 - [ ] Training moves to **DGX Spark**; heavier model (sequence/graph over flows) for signaling storms and session abuse.
 - **DoD:** detector flags held-out attack windows above a benign baseline; becomes the AI-firewall demo asset.
+
+> Running task checklist: see [`../TODO.md`](../TODO.md).
 
 ## Credibility / advisory deliverables (parallel track)
 - [ ] Per-attack writeups (what it does, what a defender sees, mitigations).

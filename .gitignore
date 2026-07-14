@@ -12,6 +12,9 @@ deploy/*/.env
 *.key
 *.pem
 
+# detector outputs (scored rows, reports, synthetic data)
+detector/out/
+
 # python
 __pycache__/
 *.pyc

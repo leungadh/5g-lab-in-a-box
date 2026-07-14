@@ -1,0 +1,6 @@
+numpy
+pandas
+pyarrow
+scikit-learn
+# optional — enables the autoencoder detector (and is the path to DGX Spark training):
+# torch

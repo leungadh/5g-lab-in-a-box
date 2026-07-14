@@ -9,7 +9,7 @@ ATTACK ?=
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap up down provision-subscriber ran-up ran-down smoke-test capture attack clean
+.PHONY: help bootstrap up down provision-subscriber ran-up ran-down smoke-test capture attack clean detector-synth detector-train
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -44,5 +44,11 @@ attack: ## Run one attack script (make attack ATTACK=gtpu/malformed_gtpu.py)
 	@test -n "$(ATTACK)" || { echo "set ATTACK=<path under attacks/>"; exit 1; }
 	python3 attacks/$(ATTACK)
 
+detector-synth: ## Validate the baseline detector on synthetic data
+	python3 detector/baseline.py --synth --model isoforest
+
+detector-train: ## Run the baseline detector on captured features (DATA=path, MODEL=isoforest|autoencoder|both)
+	python3 detector/baseline.py --data $(or $(DATA),capture/data/features.parquet) --model $(or $(MODEL),isoforest)
+
 clean: ## Remove captured pcaps and generated data
-	rm -rf capture/pcaps/*.pcap capture/data/*.parquet 2>/dev/null || true
+	rm -rf capture/pcaps/*.pcap capture/data/*.parquet detector/out/* 2>/dev/null || true
