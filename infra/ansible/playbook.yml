@@ -1,0 +1,57 @@
+---
+# Reproduce the lab host from scratch. Run: ansible-playbook -i inventory.ini playbook.yml
+# Layer 0 of the IaC stack — see docs/ARCHITECTURE.md.
+- name: Prepare 5G lab host
+  hosts: lab
+  become: true
+  vars:
+    ue_subnet: "10.45.0.0/16"
+  tasks:
+    - name: Install base packages
+      apt:
+        name: [docker.io, docker-compose-plugin, git, build-essential, tcpdump, python3-pip, iptables]
+        update_cache: true
+        state: present
+
+    - name: Enable and start docker
+      service:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Enable IPv4 forwarding
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: "1"
+        state: present
+        reload: true
+
+    - name: Load tun module
+      community.general.modprobe:
+        name: tun
+        state: present
+
+    # gtp5g must be built against the running kernel; this clones + builds it.
+    - name: Clone gtp5g
+      git:
+        repo: https://github.com/free5gc/gtp5g.git
+        dest: /opt/gtp5g
+        version: master
+
+    - name: Build and install gtp5g
+      shell: make && make install
+      args:
+        chdir: /opt/gtp5g
+        creates: /lib/modules/$(uname -r)/extra/gtp5g.ko
+
+    - name: Load gtp5g
+      community.general.modprobe:
+        name: gtp5g
+        state: present
+
+    - name: N6 egress NAT for UE subnet
+      iptables:
+        table: nat
+        chain: POSTROUTING
+        source: "{{ ue_subnet }}"
+        jump: MASQUERADE

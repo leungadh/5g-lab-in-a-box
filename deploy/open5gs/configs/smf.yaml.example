@@ -1,0 +1,29 @@
+# smf.yaml — example. Replace .example and reconcile with upstream defaults.
+# Key lab edits: session subnet = UE_SUBNET, PFCP peer = upf, N4 reachable on the core bridge.
+logger:
+  level: info
+
+smf:
+  sbi:
+    server:
+      - address: smf
+        port: 7777
+    client:
+      nrf:
+        - uri: http://nrf:7777
+  pfcp:
+    server:
+      - address: smf        # N4 (PFCP) — SMF side
+    client:
+      upf:
+        - address: upf      # peer UPF; capture/attacks observe this link
+  gtpc:
+    server:
+      - address: smf
+  session:
+    - subnet: 10.45.0.0/16  # == UE_SUBNET in .env
+      gateway: 10.45.0.1
+      dnn: internet
+  dns:
+    - 8.8.8.8
+    - 1.1.1.1

@@ -1,0 +1,39 @@
+# UERANSIM UE — must match a subscriber provisioned in the core (scripts/provision_subscriber.sh).
+# supi, key, op/opc, plmn all come from .env.
+
+supi: 'imsi-999700000000001'   # == 'imsi-' + IMSI
+mcc: '999'
+mnc: '70'
+
+key: '465B5CE8B199B49FAA5F0A2EE238A6BC'    # == KI
+op: 'E8ED289DEBA952E4283B54E88E6183CA'     # == OPC value...
+opType: 'OPC'                              # ...declared as OPC (not OP)
+amf: '8000'
+imei: '356938035643803'
+imeiSv: '4370816125816151'
+
+gnbSearchList:
+  - 127.0.0.1
+
+sessions:
+  - type: 'IPv4'
+    apn: 'internet'          # == APN
+    slice:
+      sst: 1
+      sd: 0xffffff
+
+configured-nssai:
+  - sst: 1
+    sd: 0xffffff
+default-nssai:
+  - sst: 1
+    sd: 1
+
+integrity:
+  IA1: true
+  IA2: true
+  IA3: true
+ciphering:
+  EA1: true
+  EA2: true
+  EA3: true

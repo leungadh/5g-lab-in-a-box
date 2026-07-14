@@ -1,0 +1,24 @@
+# Lab artifacts — never commit captured traffic or secrets
+capture/pcaps/
+capture/data/
+*.pcap
+*.pcapng
+*.parquet
+
+# env / secrets
+.env
+deploy/*/.env
+!deploy/*/.env.example
+*.key
+*.pem
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# terraform
+infra/terraform/.terraform/
+*.tfstate
+*.tfstate.*

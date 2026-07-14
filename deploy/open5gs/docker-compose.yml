@@ -1,0 +1,107 @@
+# Open5GS 5G SA core — lab profile.
+# Uses the community single-image build (gradiant/open5gs) run per network function.
+# Each NF mounts its YAML from ./configs. Pin the image tag; do not use :latest in a lab.
+#
+# NOTE: the UPF requires the `gtp5g` kernel module on the HOST (installed by scripts/bootstrap.sh).
+# TODO before first run:
+#   - confirm IMAGE tag matches an available gradiant/open5gs release
+#   - review ./configs/*.yaml (subnet, PLMN) against ../../.env
+
+x-open5gs: &open5gs
+  image: ${OPEN5GS_IMAGE:-gradiant/open5gs:2.7.5}
+  restart: unless-stopped
+  networks: [core]
+
+services:
+  mongo:
+    image: mongo:6.0
+    restart: unless-stopped
+    volumes: [mongo-data:/data/db]
+    networks: [core]
+
+  nrf:
+    <<: *open5gs
+    command: open5gs-nrfd
+    volumes: ["./configs/nrf.yaml:/opt/open5gs/etc/open5gs/nrf.yaml"]
+
+  scp:
+    <<: *open5gs
+    command: open5gs-scpd
+    volumes: ["./configs/scp.yaml:/opt/open5gs/etc/open5gs/scp.yaml"]
+    depends_on: [nrf]
+
+  amf:
+    <<: *open5gs
+    command: open5gs-amfd
+    volumes: ["./configs/amf.yaml:/opt/open5gs/etc/open5gs/amf.yaml"]
+    depends_on: [scp]
+    ports: ["38412:38412/sctp"]   # N2 (NGAP) exposed to UERANSIM gNB
+
+  ausf:
+    <<: *open5gs
+    command: open5gs-ausfd
+    volumes: ["./configs/ausf.yaml:/opt/open5gs/etc/open5gs/ausf.yaml"]
+    depends_on: [scp]
+
+  udm:
+    <<: *open5gs
+    command: open5gs-udmd
+    volumes: ["./configs/udm.yaml:/opt/open5gs/etc/open5gs/udm.yaml"]
+    depends_on: [scp]
+
+  udr:
+    <<: *open5gs
+    command: open5gs-udrd
+    volumes: ["./configs/udr.yaml:/opt/open5gs/etc/open5gs/udr.yaml"]
+    depends_on: [mongo, scp]
+
+  pcf:
+    <<: *open5gs
+    command: open5gs-pcfd
+    volumes: ["./configs/pcf.yaml:/opt/open5gs/etc/open5gs/pcf.yaml"]
+    depends_on: [mongo, scp]
+
+  bsf:
+    <<: *open5gs
+    command: open5gs-bsfd
+    volumes: ["./configs/bsf.yaml:/opt/open5gs/etc/open5gs/bsf.yaml"]
+    depends_on: [scp]
+
+  nssf:
+    <<: *open5gs
+    command: open5gs-nssfd
+    volumes: ["./configs/nssf.yaml:/opt/open5gs/etc/open5gs/nssf.yaml"]
+    depends_on: [scp]
+
+  smf:
+    <<: *open5gs
+    command: open5gs-smfd
+    volumes: ["./configs/smf.yaml:/opt/open5gs/etc/open5gs/smf.yaml"]
+    depends_on: [scp]
+
+  upf:
+    <<: *open5gs
+    command: open5gs-upfd
+    volumes: ["./configs/upf.yaml:/opt/open5gs/etc/open5gs/upf.yaml"]
+    cap_add: [NET_ADMIN]           # tun device + routing for N6
+    devices: ["/dev/net/tun"]
+    sysctls: ["net.ipv4.ip_forward=1"]
+    ports: ["2152:2152/udp"]       # N3 (GTP-U) — capture/attacks attach here
+    depends_on: [smf]
+
+  webui:
+    image: ${OPEN5GS_WEBUI_IMAGE:-gradiant/open5gs-webui:2.7.5}
+    restart: unless-stopped
+    environment:
+      - DB_URI=mongodb://mongo/open5gs
+    ports: ["${WEBUI_PORT:-9999}:9999"]
+    depends_on: [mongo]
+    networks: [core]
+
+networks:
+  core:
+    driver: bridge
+    name: open5gs-core     # capture.sh binds tcpdump to this bridge
+
+volumes:
+  mongo-data:

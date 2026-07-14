@@ -1,0 +1,21 @@
+# OPTIONAL Layer 2 — provision the lab host itself so the whole lab is reproducible from nothing.
+# Stub: rename to main.tf and fill in a provider (libvirt / AWS / etc.). Then:
+#   terraform init && terraform apply
+#   ansible-playbook ...  # Layer 0
+#   make bootstrap && make up && make smoke-test
+#
+# Example (libvirt local VM) — uncomment and adjust:
+#
+# terraform {
+#   required_providers { libvirt = { source = "dmacvicar/libvirt" } }
+# }
+# provider "libvirt" { uri = "qemu:///system" }
+#
+# resource "libvirt_domain" "lab" {
+#   name   = "5g-lab"
+#   memory = 8192          # 5G SA core + RAN + capture is comfortable at 8-16 GB
+#   vcpu   = 4
+#   # ...disk/cloudinit/network...
+# }
+#
+# output "lab_ip" { value = "TODO" }

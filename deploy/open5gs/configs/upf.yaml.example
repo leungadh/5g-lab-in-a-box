@@ -1,0 +1,20 @@
+# upf.yaml — example. The UPF terminates N3 (GTP-U) and N4 (PFCP).
+# Requires gtp5g kernel module on the host (scripts/bootstrap.sh).
+logger:
+  level: info
+
+upf:
+  pfcp:
+    server:
+      - address: upf          # N4 (PFCP) — UPF side
+    client:
+      smf:
+        - address: smf
+  gtpu:
+    server:
+      - address: 0.0.0.0      # N3 (GTP-U) bind — reachable from gNB + attack tooling
+  session:
+    - subnet: 10.45.0.0/16    # == UE_SUBNET
+      gateway: 10.45.0.1
+      dnn: internet
+      dev: ogstun

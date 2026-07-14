@@ -1,0 +1,24 @@
+# UERANSIM gNB — connects to the Open5GS AMF over N2 (NGAP/SCTP).
+# TODO: set linkIp/ngapIp/gtpIp to the host address reachable by the containers,
+#       and amfConfigs.address to the AMF's N2 endpoint (host:38412 as mapped in compose).
+
+mcc: '999'          # == MCC in .env
+mnc: '70'           # == MNC
+
+nci: '0x000000010'  # NR Cell Identity
+idLength: 32
+tac: 1              # == TAC
+
+linkIp: 127.0.0.1   # local NIC the gNB binds
+ngapIp: 127.0.0.1   # N2 source
+gtpIp: 127.0.0.1    # N3 source (GTP-U)
+
+amfConfigs:
+  - address: 127.0.0.1   # AMF N2 (compose maps 38412/sctp to host)
+    port: 38412
+
+slices:
+  - sst: 1               # == SST
+    sd: 0xffffff         # == SD
+
+ignoreStreamIds: true
