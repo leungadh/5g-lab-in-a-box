@@ -25,6 +25,16 @@ Status legend: `[ ]` open · `[~]` in progress · `[x]` done.
 - [ ] `capture/extract_features.py` → real `features.parquet` (replaces synthetic).
 - [ ] **DoD:** a labeled feature set covering benign + every attack class.
 
+## 3b. Traffic-scenario generator & ground-truth labels — see [`docs/DATASET.md`](docs/DATASET.md)
+Upgrade from filename-based labeling to a mixed timeline + sidecar label file.
+- [x] Sidecar label schema (`scenarios/schema.py`): `LabelEvent` + `RunManifest`.
+- [x] Interval join (`scenarios/join.py`): capture windows → class by timestamp overlap.
+- [x] Scenario orchestrator + benign & mixed scenarios (`scenarios/runner.py`, `library.py`) — skeleton.
+- [ ] Wire the interval join into `capture/extract_features.py` (replace filename labeling).
+- [ ] Expand the scenario library (more benign cycles, more anomaly mixes, concurrent baseline).
+- [ ] Add a ≥2-gNB profile for handover; add periodic-TAU scenario.
+- [ ] Package versioned dataset: datasheet + splits **by run** + label-count validation.
+
 ## 4. Re-run the baseline detector on real captures — Phase 5
 - [x] Build baseline detector (`detector/`): IsolationForest + optional autoencoder, verified on synthetic data (ROC-AUC ~0.985).
 - [ ] Run on **real** captures: `make detector-train DATA=capture/data/features.parquet`.

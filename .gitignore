@@ -15,6 +15,9 @@ deploy/*/.env
 # detector outputs (scored rows, reports, synthetic data)
 detector/out/
 
+# scenario runs (sidecar labels + manifests)
+scenarios/out/
+
 # python
 __pycache__/
 *.pyc
