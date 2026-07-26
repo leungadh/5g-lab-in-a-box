@@ -83,6 +83,7 @@ make down
 - [`docs/PLATFORM.md`](docs/PLATFORM.md) — prepare the Ubuntu appliance and run the lab, step by step.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — components, interfaces, and the capture → model data flow.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — milestones from empty host to a labeled dataset, including the handoff to **Idea 2 (GTP/PFCP anomaly detector)**.
+- [`docs/DETECTION.md`](docs/DETECTION.md) — how the ML detection works, honest limitations, and the step-by-step first real training run.
 - [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) — scope of use, attack classes, and why they map to real MNO risk.
 
 ## Status
