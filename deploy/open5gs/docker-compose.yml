@@ -77,17 +77,19 @@ services:
     <<: *open5gs
     command: open5gs-smfd
     volumes: ["./configs/smf.yaml:/opt/open5gs/etc/open5gs/smf.yaml"]
-    depends_on: [scp]
+    # SMF's PFCP client resolves the 'upf' hostname at startup, so UPF must be up first.
+    depends_on: [scp, upf]
 
   upf:
     <<: *open5gs
     command: open5gs-upfd
+    privileged: true               # required to create the ogstun TUN device (TUNSETIFF)
     volumes: ["./configs/upf.yaml:/opt/open5gs/etc/open5gs/upf.yaml"]
     cap_add: [NET_ADMIN]           # tun device + routing for N6
     devices: ["/dev/net/tun"]
     sysctls: ["net.ipv4.ip_forward=1"]
     ports: ["2152:2152/udp"]       # N3 (GTP-U) — capture/attacks attach here
-    depends_on: [smf]
+    # UPF starts independently (it only listens for PFCP); the SMF connects to it.
 
   webui:
     image: ${OPEN5GS_WEBUI_IMAGE:-gradiant/open5gs-webui:2.7.5}

@@ -1,9 +1,16 @@
-# UERANSIM UE — must match a subscriber provisioned in the core (scripts/provision_subscriber.sh).
-# supi, key, op/opc, plmn all come from .env.
+# UERANSIM UE — must match a subscriber provisioned in the core.
+# Values (supi/key/op/plmn/apn/slice) mirror .env. Keep SST/SD consistent with
+# the provisioned subscriber and the AMF's s_nssai in deploy/open5gs/configs/amf.yaml.
 
 supi: 'imsi-999700000000001'   # == 'imsi-' + IMSI
 mcc: '999'
 mnc: '70'
+
+# SUCI concealment (protectionScheme 0 = null scheme; key present but unused)
+protectionScheme: 0
+homeNetworkPublicKey: '5a8d38864820197c3394b92613b20b91633cbd897119273bf8e4a6f4eec0a650'
+homeNetworkPublicKeyId: 1
+routingIndicator: '0000'
 
 key: '465B5CE8B199B49FAA5F0A2EE238A6BC'    # == KI
 op: 'E8ED289DEBA952E4283B54E88E6183CA'     # == OPC value...
@@ -15,6 +22,19 @@ imeiSv: '4370816125816151'
 gnbSearchList:
   - 127.0.0.1
 
+# UAC access identities / classes (required by recent UERANSIM)
+uacAic:
+  mps: false
+  mcs: false
+
+uacAcc:
+  normalClass: 0
+  class11: false
+  class12: false
+  class13: false
+  class14: false
+  class15: false
+
 sessions:
   - type: 'IPv4'
     apn: 'internet'          # == APN
@@ -25,9 +45,10 @@ sessions:
 configured-nssai:
   - sst: 1
     sd: 0xffffff
+
 default-nssai:
   - sst: 1
-    sd: 1
+    sd: 0xffffff
 
 integrity:
   IA1: true
@@ -37,3 +58,8 @@ ciphering:
   EA1: true
   EA2: true
   EA3: true
+
+# UP integrity protection max data rate (required by recent UERANSIM)
+integrityMaxRate:
+  uplink: 'full'
+  downlink: 'full'

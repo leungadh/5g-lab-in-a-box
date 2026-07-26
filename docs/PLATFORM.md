@@ -180,10 +180,14 @@ python3 capture/extract_features.py "capture/pcaps/*.pcap" -o capture/data/featu
 | `make up`: *not a directory... mount a directory onto a file* | NF config files missing; Docker auto-created them as directories | `make configs` (removes the bogus dirs and extracts real configs) |
 | WebUI login "wrong password" | admin account never seeded (Mongo not ready at webui boot) | `make webui-admin`; verify `db.accounts.countDocuments({})` is `1` |
 | NFs start but keep restarting / can't reach NRF | default configs use `127.0.0.x` loopback across containers | point each NF's `sbi` client at service names (`nrf`, `scp`); bind servers to `0.0.0.0` |
-| UPF container restarts / no data path | `gtp5g` not loaded | `lsmod \| grep gtp5g`; rebuild (step 4); rebuild after kernel upgrades |
-| `modprobe gtp5g` fails to build | missing kernel headers | `sudo apt install linux-headers-$(uname -r)` then `make` again |
+| UPF container: `ioctl(TUNSETIFF): Operation not permitted` | kernel won't let a container create a TUN device (even privileged) | run the UPF natively — **Path B** (§12); or boot a stock kernel (Outstanding Issue) |
+| SMF crash loop: `getaddrinfo(upf) failed` | UPF not resolvable at SMF startup (container down, or Path B) | ensure UPF is up first (compose `depends_on: [scp, upf]`); Path B: `extra_hosts: ["upf:<HOST_IP>"]` |
+| SMF crash: `smf_fd_init ... fd_conf_parse Invalid argument` | freeDiameter (Gx/Gy) enabled but not used in 5G SA | comment out `freeDiameter:` in `smf.yaml` (§12c) |
+| SMF: `No Response / Retry association [ip]:8805` | SMF↔UPF PFCP path asymmetric (reply from a different IP) | make both sides use the host's real IP (§12); symmetric target/reply |
+| gNB: `RLS/GTP Socket bind failed: Address already in use` | stale `nr-gnb`/`nr-ue` from a prior run holding ports | `sudo pkill -9 -f nr-gnb; sudo pkill -9 -f nr-ue` (now built into `ran.sh`) |
 | UE has no IP / `uesimtun0` missing | gNB↔AMF (N2) or subscriber mismatch | check `/tmp/gnb.log`, `/tmp/ue.log`; verify IMSI/keys match `.env`; confirm AMF N2 reachable |
-| UE gets IP but no internet | N6 NAT / forwarding | re-run `make bootstrap`; confirm `net.ipv4.ip_forward=1` |
+| UE `ue.log`: missing field (`integrityMaxRate`, `uacAic`, …) | UERANSIM `ue.yaml` incomplete for its version | use the complete `deploy/ran/ueransim/ue.yaml` in this repo |
+| UE gets IP + PDU session but no internet | host forwarding/NAT — or the kernel forwarding block | `sudo ./scripts/host-forward.sh`; if `IpForwDatagrams` never moves, see Outstanding Issue |
 | Everything fails on Mac/Windows | Docker Desktop can't load kernel modules | use native Ubuntu or a full Linux VM |
 | Disk fills up | pcaps accumulating | `make clean`; captures are git-ignored |
 
@@ -199,6 +203,139 @@ ansible-playbook -i inventory.ini playbook.yml
 
 ---
 
+## 12. Path B — run the UPF natively on the host
+
+Use this when **a container cannot create a TUN device** on your host (see the Outstanding Issue below). The control plane stays in Docker; only the UPF runs natively, where TUN works. This was validated end to end (registration → PDU session → N3 traffic).
+
+**12a. Install and configure the UPF on the host**
+
+```bash
+# install ONLY the UPF (not the full open5gs metapackage — it would start
+# duplicate daemons that fight the containers for ports)
+sudo add-apt-repository -y ppa:open5gs/latest
+sudo apt update && sudo apt install -y open5gs-upf
+```
+
+Edit `/etc/open5gs/upf.yaml` so PFCP is reachable from the containers and GTP-U
+sits on a loopback address that won't collide with the host gNB. Use your host's
+primary IP for PFCP (so its node_id and reply source match what the SMF targets):
+
+```yaml
+upf:
+  pfcp:
+    server:
+      - address: <HOST_IP>        # e.g. 192.168.50.13 — reachable from the SMF container
+  gtpu:
+    server:
+      - address: 127.0.0.7        # host loopback; gNB (127.0.0.1) reaches it, no port clash
+  session:
+    - subnet: 10.45.0.1/16        # the interface address in CIDR (NOT 10.45.0.0/16 + gateway)
+      dev: ogstun
+```
+
+```bash
+sudo systemctl restart open5gs-upfd
+ip addr show ogstun | grep inet     # must show: inet 10.45.0.1/16
+sudo ss -ulnp | grep 8805           # pfcp on <HOST_IP>:8805
+```
+
+**12b. Point the Docker stack at the host UPF**
+
+```bash
+# remove the container UPF and stop it restarting
+docker compose -f deploy/open5gs/docker-compose.yml rm -sf upf
+sed -i '/command: open5gs-upfd/a\    profiles: ["native-on-host"]' deploy/open5gs/docker-compose.yml
+
+# SMF: drop the upf container dependency; map the 'upf' hostname to the host IP
+sed -i 's/depends_on: \[scp, upf\]/depends_on: [scp]/' deploy/open5gs/docker-compose.yml
+sed -i '/command: open5gs-smfd/a\    extra_hosts: ["upf:<HOST_IP>"]' deploy/open5gs/docker-compose.yml
+```
+
+**12c. Disable Diameter in the SMF** (not used in 5G SA — policy is via PCF/SBI). The
+default config enables freeDiameter (Gx/Gy) which fails to init and crashes the SMF:
+
+```bash
+sed -i 's|^\(\s*\)freeDiameter:|\1# freeDiameter:|' deploy/open5gs/configs/smf.yaml
+```
+
+**12d. Bring up and apply host networking**
+
+```bash
+make up
+sudo ./scripts/host-forward.sh            # NAT + forwarding + rp_filter for the UE subnet
+```
+
+Verify the join: `docker compose ... logs smf` and `journalctl -u open5gs-upfd` should
+both show **PFCP associated**. Then `make ran-up` — the UE should register and establish
+a PDU session against the native UPF.
+
+**Why these specific addresses:** the SMF (a container on the `open5gs-core` bridge)
+must reach the host UPF over a path where the request target and the reply source are
+the same IP, or PFCP can't match the peer. Using the host's real IP for both the SMF's
+`upf` mapping and the UPF's PFCP bind makes the association symmetric. GTP-U (N3) stays
+on loopback because the gNB runs on the same host.
+
+## Outstanding issue — internet egress blocked on kernel 7.0.0-28-generic
+
+**Status:** 5G core fully working (registration, authentication, N4 PFCP, N3 GTP-U
+uplink all verified). **Internet egress (N6) does not work on the original lab host.**
+
+**Symptom:** a UE (`uesimtun0`, `10.45.0.x`) cannot ping the internet *or* even the UPF
+gateway (`10.45.0.1`). Uplink packets reach the UPF's `ogstun` (confirmed with
+`tcpdump -i ogstun`), but the kernel never forwards them: `IpForwDatagrams` (via
+`nstat`) does not increment and nothing appears on the egress interface.
+
+**What was verified correct (so these are NOT the cause):**
+
+- `net.ipv4.ip_forward = 1`, `conf.all.forwarding = 1`, `conf.ogstun.forwarding = 1`.
+- `rp_filter` set to `0` on all/ogstun/egress.
+- `ogstun` is `UP`/`LOWER_UP` with `inet 10.45.0.1/16`.
+- Valid default route: `ip route get 8.8.8.8` → `via <gw> dev wlp129s0`.
+- NAT masquerade rule present for `10.45.0.0/16` out the egress interface.
+- `FORWARD` accept rules present for `ogstun` (Docker sets FORWARD policy to DROP).
+- All of the above are applied by [`scripts/host-forward.sh`](../scripts/host-forward.sh).
+
+**Likely root cause:** the host runs a **non-standard `7.0.0-28-generic` kernel**
+(Ubuntu 24.04 normally ships a 6.x kernel). The **same kernel already blocked a second
+unrelated operation**: no container — privileged, host-network, or fully unconfined —
+can create a TUN device (`ioctl(TUNSETIFF): Operation not permitted`), while the host
+can. Two independent, correctly-configured kernel operations silently failing on the
+same custom kernel strongly points to the kernel itself.
+
+**Recommended solution — boot the stock kernel.** A `6.17.0-14-generic` kernel is
+installed alongside the 7.0 one. Booting it may fix **both** problems at once, and if
+container TUN works there, Path B is unnecessary — run the clean all-Docker setup
+(privileged UPF container) instead.
+
+```bash
+# one-time boot of 6.17 (default stays 7.0)
+sudo grub-reboot "Advanced options for Ubuntu>Ubuntu, with Linux 6.17.0-14-generic"
+sudo reboot
+
+# after reboot: does a container get TUN now?
+uname -r    # 6.17.0-14-generic
+docker run --rm --privileged --device /dev/net/tun --entrypoint sh gradiant/open5gs:2.7.5 \
+  -c 'ip tuntap add name t0 mode tun && echo "TUN OK" || echo "TUN FAILED"'
+```
+
+- **TUN OK** → unpark the `upf` service (remove its `profiles:` line), revert the SMF
+  `extra_hosts`/`depends_on` edits, `make up`, then `sudo ./scripts/host-forward.sh`.
+  Host forwarding will very likely work on the stock kernel and internet egress with it.
+- **TUN FAILED** → stay on Path B. The data plane works on loopback (UE ↔ core ↔ UPF);
+  internet egress would then need deeper kernel debugging (`bpftrace`/`dropwatch`) or a
+  wired uplink on a stock kernel.
+
+**Does egress matter for this project?** No. The attack scripts target N3/N4 at
+lab/loopback addresses and capture runs on those interfaces — none of it requires the UE
+to reach the public internet. Egress is a convenience for the `smoke-test`, not a
+prerequisite for the security work.
+
+---
+
 ### At a glance
 
-Native **x86-64 Ubuntu 22.04/24.04** → install headers + docker → **build `gtp5g`** → build UERANSIM → clone repo, fill `.env` + configs → `make bootstrap up provision-subscriber ran-up smoke-test`. The only step that genuinely bites is the `gtp5g` module; everything else is scripted.
+Native **x86-64 Ubuntu 22.04/24.04** → install headers + docker → build UERANSIM →
+clone repo, fill `.env` + configs → `make env configs up webui-admin provision-subscriber ran-up`.
+If a container can't create TUN on your kernel, use **Path B** (native UPF). The 5G core
+comes up cleanly; the only environment-specific hurdle is kernel support for TUN /
+forwarding — see the Outstanding Issue.
