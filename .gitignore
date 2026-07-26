@@ -28,3 +28,6 @@ venv/
 infra/terraform/.terraform/
 *.tfstate
 *.tfstate.*
+
+# macOS
+.DS_Store
