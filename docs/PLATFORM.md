@@ -95,30 +95,70 @@ cd ..
 git clone https://github.com/leungadh/5g-lab-in-a-box.git
 cd 5g-lab-in-a-box
 
-# top-level env: IMSI, keys, PLMN, UE subnet
-cp .env.example .env
+# 7a. Create the env files (top-level + compose profile). `make env` does both.
+make env
+#   equivalently:
+#   cp .env.example .env                              # IMSI, keys, PLMN, UE subnet
+#   cp deploy/open5gs/.env.example deploy/open5gs/.env
 nano .env                       # set/rotate KI and OPC before real use
 
-# Open5GS per-NF configs: pull upstream defaults, then edit
-cp deploy/open5gs/.env.example deploy/open5gs/.env
-docker run --rm gradiant/open5gs:2.7.5 \
-  tar -C /opt/open5gs/etc/open5gs -c . | tar -x -C deploy/open5gs/configs
-# then reconcile amf/smf/upf YAML with .env  (see deploy/open5gs/configs/README.md)
+# 7b. Populate the Open5GS NF configs from the image defaults. `make configs` does this.
+make configs
+#   This removes any directories Docker may have auto-created in place of the
+#   config files, then extracts the real YAMLs from the image into
+#   deploy/open5gs/configs/. (Manual equivalent is in deploy/open5gs/configs/README.md.)
 ```
 
-Key values to make consistent across `.env`, the Open5GS configs, and `deploy/ran/ueransim/{gnb,ue}.yaml`: **MCC/MNC, TAC, SST/SD, IMSI, KI, OPC, and the UE subnet.**
+> **Why `make configs` matters:** the compose file bind-mounts individual files like
+> `configs/nrf.yaml`. If those files don't exist, Docker silently creates them as
+> **directories**, and `make up` then fails with *"not a directory: are you trying to
+> mount a directory onto a file"*. `make configs` prevents (and cleans up) that.
+
+Then reconcile the data-plane values so the UE can attach. The extracted configs carry the image defaults; edit these to match your `.env`:
+
+- **amf.yaml** — `plmn_id` (MCC/MNC), `tac`, `s_nssai` (SST/SD); NGAP bind `0.0.0.0`.
+- **smf.yaml** — session subnet = `UE_SUBNET`; UPF peer.
+- **upf.yaml** — GTP-U bind `0.0.0.0`; subnet matching the SMF pool.
+
+Key values to keep consistent across `.env`, the Open5GS configs, and `deploy/ran/ueransim/{gnb,ue}.yaml`: **MCC/MNC, TAC, SST/SD, IMSI, KI, OPC, and the UE subnet.**
 
 ## 8. Bring the lab up
 
 ```bash
 make bootstrap            # idempotent host prep (docker, gtp5g check, NAT)
-make up                   # start the Open5GS core + WebUI
+make up                   # start the Open5GS core + WebUI (auto-creates .env if missing)
+make webui-admin          # seed the WebUI admin account (only if login fails — see 8a)
 make provision-subscriber # add the test IMSI from .env
 make ran-up               # start gNB then UE  (UE should get an IP)
 make smoke-test           # verify end-to-end data path (UE -> internet)
 ```
 
-Success looks like: `docker compose ps` all healthy, the WebUI reachable at `http://localhost:9999`, a `uesimtun0` interface with an IP in your UE subnet, and `smoke-test` passing a ping through N6.
+Success looks like: `docker compose -f deploy/open5gs/docker-compose.yml ps` all healthy, the WebUI reachable at `http://localhost:9999`, a `uesimtun0` interface with an IP in your UE subnet, and `smoke-test` passing a ping through N6.
+
+### 8a. WebUI login
+
+Open `http://localhost:9999` and log in with the Open5GS defaults:
+
+- **Username:** `admin`
+- **Password:** `1423`
+
+**If login fails with "wrong password":** the WebUI only seeds that default account on
+startup when it can reach Mongo *and* the accounts collection is empty — on a compose
+cold start it often boots before Mongo is ready and skips seeding. Fix it with:
+
+```bash
+make webui-admin          # inserts a correct admin/1423 account into MongoDB
+```
+
+Verify (should return `1`):
+
+```bash
+docker compose -f deploy/open5gs/docker-compose.yml exec mongo \
+  mongosh open5gs --quiet --eval 'db.accounts.countDocuments({})'
+```
+
+Change the password after first login. The WebUI is only needed to view/manage
+subscribers; `make provision-subscriber` adds the test IMSI without it.
 
 Tear down with `make down`; stop just the RAN with `make ran-down`.
 
@@ -136,6 +176,10 @@ python3 capture/extract_features.py "capture/pcaps/*.pcap" -o capture/data/featu
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| `make up`: cannot find env file `.env` | compose profile `.env` not created | `make env` (or `cp deploy/open5gs/.env.example deploy/open5gs/.env`) |
+| `make up`: *not a directory... mount a directory onto a file* | NF config files missing; Docker auto-created them as directories | `make configs` (removes the bogus dirs and extracts real configs) |
+| WebUI login "wrong password" | admin account never seeded (Mongo not ready at webui boot) | `make webui-admin`; verify `db.accounts.countDocuments({})` is `1` |
+| NFs start but keep restarting / can't reach NRF | default configs use `127.0.0.x` loopback across containers | point each NF's `sbi` client at service names (`nrf`, `scp`); bind servers to `0.0.0.0` |
 | UPF container restarts / no data path | `gtp5g` not loaded | `lsmod \| grep gtp5g`; rebuild (step 4); rebuild after kernel upgrades |
 | `modprobe gtp5g` fails to build | missing kernel headers | `sudo apt install linux-headers-$(uname -r)` then `make` again |
 | UE has no IP / `uesimtun0` missing | gNB↔AMF (N2) or subscriber mismatch | check `/tmp/gnb.log`, `/tmp/ue.log`; verify IMSI/keys match `.env`; confirm AMF N2 reachable |
