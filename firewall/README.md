@@ -37,9 +37,12 @@ TARGET_IP=<that ip> ./firewall/run_demo.sh
 
 | Traffic | Expected at the target | Why |
 |---|---|---|
-| valid GTP-U | passes (~all received) | well-formed, permitted |
-| malformed GTP-U | ~0 received | GTP-U inspection drops invalid message types / headers |
-| GTP-U flood | capped far below what was sent | UDP-flood screen rate-limits it |
+| valid GTP-U (N3) | passes (~all received) | well-formed, permitted |
+| malformed GTP-U (N3) | ~0 received | GTP-U inspection drops invalid message types / headers |
+| GTP-U flood (N3) | capped far below what was sent | UDP-flood screen rate-limits it |
+| PFCP session flood (N4) | capped far below what was sent | same UDP-flood screen (PFCP is UDP/8805) — **volumetric** defense only |
+
+> PFCP defense is rate-limiting only — SRX doesn't deep-inspect PFCP. Low-rate PFCP abuse (association/heartbeat) slips past the firewall and is caught by the ML detector instead.
 
 Confirm the *why* on the cSRX: `show security gprs gtp counters`, `show security screen statistics zone untrust`.
 
