@@ -31,3 +31,8 @@ infra/terraform/.terraform/
 
 # macOS
 .DS_Store
+
+# cSRX image archive (large, licensed — do NOT commit)
+firewall/images/
+*csrx*.tgz
+*csrx*.tar

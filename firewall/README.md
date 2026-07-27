@@ -15,9 +15,14 @@ Drop a **cSRX** in-path and show it blocks the lab's GTP-U attacks: `attacker â†
 ## Steps
 
 ```bash
-# 0. Load the cSRX image you downloaded from Juniper, and point the scripts at it
-docker load -i csrx.tar
+# 0. Load the cSRX image you downloaded from Juniper (.tgz or .tar), and point the
+#    scripts at it. Run this on the host where Docker/the lab run. The .tgz is a
+#    Docker image archive â€” you load it, you don't place it in a folder.
+docker load -i /path/to/cSRX*.tgz     # keep the file in firewall/images/ (gitignored)
+docker images | grep -i csrx          # note the REPOSITORY:TAG it loaded as
 export CSRX_IMAGE=csrx:<tag>
+# license (separate): apply the 60-day eval after the container is up, in the Junos
+# CLI:  request system license add   (per your Juniper eval instructions)
 
 # 1. Stand up the testbed
 ./firewall/setup.sh
