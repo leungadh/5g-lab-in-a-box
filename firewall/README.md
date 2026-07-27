@@ -8,6 +8,7 @@ Drop a **cSRX** in-path and show it blocks the lab's GTP-U attacks: `attacker â†
 
 | File | Purpose |
 |---|---|
+| `csrx_loading.md` | How to load the cSRX image (`docker load`) and apply the eval license |
 | `setup.sh` | Create networks, launch cSRX (secure-wire), attach interfaces, start attacker + target |
 | `csrx.conf` | Junos config template: secure-wire + GTP inspection profile + UDP-flood screen |
 | `run_demo.sh` | Fire valid / malformed / flood GTP-U through the firewall and count what the target receives |
