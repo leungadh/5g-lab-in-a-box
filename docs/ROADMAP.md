@@ -34,10 +34,12 @@ Milestones from empty host to a labeled dataset feeding Idea 2. Each phase has a
 ## Phase 5 — Handoff to Idea 2 (GTP/PFCP anomaly detector)
 - [x] Dataset schema frozen and documented (`capture/FEATURES.md`).
 - [x] Baseline model (IsolationForest + optional autoencoder) built in `detector/`, verified on synthetic data (ROC-AUC ~0.985) as a CPU sanity check.
-- [ ] Run the baseline on **real** captures; tune threshold/contamination.
+- [x] **Run the baseline on real captures — done.** First live run: 270 windows, ROC-AUC **0.958**, 100% recall on all four captured attack classes, ~6.5% benign false-alarm. Full write-up in [`../Sample_run.md`](../Sample_run.md).
+- [ ] Tune threshold/contamination; enrich benign (varied rates, PFCP heartbeat) so "normal" is less artificially clean.
+- [ ] Add a supervised classifier that *names* the attack (not just flags it).
 - [ ] Add an N2/NGAP registration-rate feature so `signaling_storm` becomes detectable (current known gap).
 - [ ] Training moves to **DGX Spark**; heavier model (sequence/graph over flows) for signaling storms and session abuse.
-- **DoD:** detector flags held-out attack windows above a benign baseline; becomes the AI-firewall demo asset.
+- **DoD:** detector flags held-out attack windows above a benign baseline — **met** (ROC-AUC 0.958 on real captures). Next: harden toward the AI-firewall demo asset.
 
 > Running task checklist: see [`../TODO.md`](../TODO.md).
 
