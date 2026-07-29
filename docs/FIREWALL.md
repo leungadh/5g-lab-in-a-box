@@ -27,7 +27,18 @@ Container-native, no hypervisor. cSRX as an L3 gateway between two Docker subnet
 
 Files in [`../firewall/`](../firewall/): `setup.sh` (networks, cSRX in **routing** mode, attacker routed to target via cSRX), `csrx.conf` (L3 interfaces, zones, UDP-flood screen, permit policy — **no GTP**), `run_demo.sh` (fires valid / GTP-U flood / PFCP flood / malformed and counts what reaches the target). Load steps in [`../firewall/README.md`](../firewall/README.md) and [`../firewall/csrx_loading.md`](../firewall/csrx_loading.md).
 
-**Expected demo result:** valid passes; GTP-U flood and PFCP flood **rate-limited** by the screen; malformed GTP-U **passes** cSRX (proving it's the detector's job).
+**Result — validated** (`csrx:26.2R1.7`, routed mode; full run log in [`../firewall/csrx_standalone_run.md`](../firewall/csrx_standalone_run.md)):
+
+| Traffic | Sent | Reached target | Verdict |
+|---|---|---|---|
+| valid GTP-U | 200 | 200 | passes ✓ |
+| GTP-U flood | 20,000 | 4,000 | **rate-limited** ✓ |
+| PFCP session flood | 20,000 | 4,000 | **rate-limited** ✓ |
+| malformed GTP-U | 200 | 200 | passes through (detector's job) ✓ |
+
+The UDP-flood screen capped both floods (~80% dropped) while valid traffic passed and malformed sailed through — the firewall-caps-floods / detector-catches-malformed layering, demonstrated end to end.
+
+> **Gotchas hit during bring-up** (documented so they don't recur): cSRX has **no GTP ALG** (screens only); cSRX **secure-wire** mode can't attach zones/screens (use **routed**); the attacker container needs `iproute2` + `NET_ADMIN` and a static route to the target via cSRX; and cSRX's `show interfaces` **counters aren't populated** — observe forwarding by `tcpdump` on the host Docker bridges (`br-<netid>`) instead.
 
 **Why routed, not secure-wire:** cSRX secure-wire (`wire` mode) is a transparent passthrough where you can't attach zones/screens to the interfaces (they're not configurable under `[interfaces]`). Routed mode gives cSRX real L3 interfaces where screens and policies apply — the reliable way to demo the flood rate-limiting.
 
