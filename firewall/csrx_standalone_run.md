@@ -30,3 +30,14 @@ The story: cSRX caps the volumetric FLOODS; the ML detector (../detector/) catch
 malformed / protocol-abuse traffic the firewall can't see. Firewall + AI, layered.
 
 Tune: the UDP-flood screen threshold (csrx.conf) must be BELOW the attack rate to engage.
+
+==== Analysis =====
+That's a textbook Part 1 result — exactly what you want:
+
+Traffic	Sent	Reached target	Verdict
+valid GTP-U	200	200	passes ✓
+GTP-U flood	20,000	4,000	rate-limited ✓ (~80% dropped)
+PFCP session flood	20,000	4,000	rate-limited ✓
+malformed GTP-U	200	200	passes through (detector's job) ✓
+
+The UDP screen clearly engaged — both floods capped from 20k down to 4k, while valid traffic passed untouched and malformed sailed through (proving the layering). That's the whole "cSRX caps the volumetric floods; the ML detector catches the malformed/subtle" story, demonstrated on real traffic.
