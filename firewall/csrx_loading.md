@@ -31,15 +31,15 @@ You'll see a line like:
 
 ```
 REPOSITORY   TAG          IMAGE ID       CREATED       SIZE
-csrx         24.2R1.x     abc123def456   ...           ~500MB
+csrx         26.2R1.7     abc123def456   ...           ~500MB
 ```
 
-Note the **REPOSITORY:TAG** (e.g. `csrx:24.2R1.x`).
+Note the **REPOSITORY:TAG** (e.g. `csrx:26.2R1.7`).
 
 ## 4. Point the scaffold at it
 
 ```bash
-export CSRX_IMAGE="csrx:24.2R1.x"     # whatever tag step 3 reported
+export CSRX_IMAGE="csrx:26.2R1.7"     # whatever tag step 3 reported
 ```
 
 `firewall/setup.sh` reads `CSRX_IMAGE`, so from here the testbed can launch the container.
@@ -62,7 +62,7 @@ docker exec -it csrx cli
 mkdir -p firewall/images && mv /path/to/cSRX*.tgz firewall/images/
 docker load -i firewall/images/cSRX*.tgz
 docker images | grep -i csrx               # note REPOSITORY:TAG
-export CSRX_IMAGE="csrx:<tag>"
+export CSRX_IMAGE="csrx:26.2R1.7"          # your tag
 # then:
 ./firewall/setup.sh                        # launch attacker -> cSRX -> target
 # load config + license (see firewall/README.md and step 5 above)
@@ -72,5 +72,6 @@ export CSRX_IMAGE="csrx:<tag>"
 
 - **Never commit the image archive or the license** — both are covered by `.gitignore` (`firewall/images/`, `*csrx*.tgz`, `*csrx*.tar`). They're large and licensed to you.
 - The eval license **expires after 60 days**.
+- This image is **`csrx:26.2R1.7`** — a recent release. Validate the `csrx.conf` statements against the **26.x** "Securing GTP and SCTP Traffic" docs; newer Junos may also have improved 5G/PFCP handling worth checking (the config template was written conservatively).
 - If `docker load` errors on a `.tgz`, decompress first: `gunzip -k cSRX*.tgz` then `docker load -i cSRX*.tar`.
 - Full run-through of the testbed is in [`README.md`](README.md); the design and attack→mitigation mapping are in [`../docs/FIREWALL.md`](../docs/FIREWALL.md).
