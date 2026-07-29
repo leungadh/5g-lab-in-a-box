@@ -1,52 +1,48 @@
 #!/usr/bin/env bash
-# Fire representative N3/N4 traffic THROUGH the cSRX and count what the target receives.
+# Part 1 demo (routed mode): send traffic through the cSRX, count what the target gets.
+# Shows the UDP-flood screen rate-limiting the GTP-U and PFCP floods.
 # Run after setup.sh and after loading csrx.conf into the cSRX.
 #
-# Usage:  TARGET_IP=<fw-target ip> ./firewall/run_demo.sh
+# Usage:  ./firewall/run_demo.sh          (target defaults to 10.10.2.10 from setup.sh)
 set -euo pipefail
-TARGET_IP="${TARGET_IP:-}"
-[ -n "$TARGET_IP" ] || { echo "set TARGET_IP=<fw-target ip>  (docker inspect fw-target)"; exit 1; }
+TARGET_IP="${TARGET_IP:-10.10.2.10}"
 ACK="--i-own-this-lab"
-DUR=14
+DUR=16
 
-# tap <name> <udp-port>  : capture on the target for DUR seconds (background)
 tap()   { docker exec fw-target sh -c "timeout $DUR tcpdump -ni any 'udp port $2' -w /tmp/$1.pcap 2>/dev/null"; }
 count() { docker exec fw-target sh -c "tcpdump -nr /tmp/$1.pcap 2>/dev/null | wc -l"; }
 fire()  { docker exec fw-attacker python3 "attacks/$1" --target "$TARGET_IP" $ACK "${@:2}"; }
 
-echo "=== 1. VALID GTP-U  (N3, expect: PASSES) ==="
+echo "=== 1. VALID GTP-U, low rate  (baseline — expect: PASSES) ==="
 tap valid 2152 & sleep 1; fire gtpu/gtpu_flood.py --count 200 --rate 20 || true; wait
-echo "    target received: $(count valid)  packets"
+echo "    sent ~200, target received: $(count valid)"
 
-echo "=== 2. MALFORMED GTP-U  (N3, expect: BLOCKED, ~0) ==="
+echo "=== 2. GTP-U FLOOD  (N3 — expect: RATE-LIMITED by UDP screen) ==="
+tap flood 2152 & sleep 1; fire gtpu/gtpu_flood.py --count 20000 --rate 2000 || true; wait
+echo "    sent ~20000, target received: $(count flood)   (capped near screen threshold)"
+
+echo "=== 3. PFCP SESSION FLOOD  (N4 — expect: RATE-LIMITED by same UDP screen) ==="
+tap pfcp 8805 & sleep 1; fire pfcp/pfcp_session_flood.py --count 20000 --rate 2000 || true; wait
+echo "    sent ~20000, target received: $(count pfcp)   (capped)"
+
+echo "=== 4. MALFORMED GTP-U  (expect: PASSES cSRX — no GTP inspection) ==="
 tap mal 2152 & sleep 1; fire gtpu/malformed_gtpu.py --count 200 --rate 20 || true; wait
-echo "    target received: $(count mal)  packets   (GTP-U inspection drops these)"
-
-echo "=== 3. GTP-U FLOOD  (N3, expect: RATE-LIMITED, capped << 5000) ==="
-tap flood 2152 & sleep 1; fire gtpu/gtpu_flood.py --count 5000 --rate 500 || true; wait
-echo "    target received: $(count flood)  packets   (UDP-flood screen caps this)"
-
-echo "=== 4. PFCP SESSION FLOOD  (N4, expect: RATE-LIMITED, capped << 5000) ==="
-tap pfcp 8805 & sleep 1; fire pfcp/pfcp_session_flood.py --count 5000 --rate 500 || true; wait
-echo "    target received: $(count pfcp)  packets   (same UDP screen caps PFCP/8805)"
+echo "    sent ~200, target received: $(count mal)   (cSRX doesn't inspect GTP — this is the DETECTOR's job)"
 
 cat <<EOF
 
-=== See WHY on the cSRX (drop evidence) ===
+=== See WHY on the cSRX ===
   docker exec -it csrx cli
-  > show security gprs gtp counters                     # GTP-U inspection drops
-  > show security screen statistics zone untrust        # UDP-flood drops (GTP-U + PFCP)
+  > show security screen statistics zone untrust     # UDP-flood drop counters
+  > show security flow session summary
   > show security policies detail
-  > show log messages | match "GTP|PFCP"                # traffic-logging
 
-Interpretation:
-  1 valid  -> ~full count            2 malformed -> ~0 (GTP inspection)
-  3 flood  -> capped (UDP screen)    4 pfcp flood -> capped (UDP screen, port 8805)
+Reading it:
+  1 valid   -> ~full (passes)          2 gtpu flood -> capped (screen)
+  3 pfcp flood -> capped (screen)      4 malformed  -> passes (firewall can't inspect; detector catches it)
 
-Note: the PFCP defense is VOLUMETRIC (rate-limit only). SRX doesn't deep-inspect
-PFCP, so low-rate PFCP abuse (assoc/heartbeat) slips past the firewall — that's
-the ML detector's job. Firewall caps the floods; AI catches the subtle abuse.
+The story: cSRX caps the volumetric FLOODS; the ML detector (../detector/) catches the
+malformed / protocol-abuse traffic the firewall can't see. Firewall + AI, layered.
 
-"Before" comparison: raise the screen threshold above the attack rate (flood gets
-through), then lower it to show the rate-limit engage.
+Tune: the UDP-flood screen threshold (csrx.conf) must be BELOW the attack rate to engage.
 EOF

@@ -1,58 +1,55 @@
-# firewall/ — Juniper cSRX GTP-firewall testbed (Phase 1)
+# firewall/ — cSRX flood-firewall testbed (Part 1, routed mode)
 
-Drop a **cSRX** in-path and show it blocks the lab's GTP-U attacks: `attacker → cSRX (secure-wire) → target`. This is the enforcement half of the "firewall + AI" story — see [`../docs/FIREWALL.md`](../docs/FIREWALL.md) for the full design, the attack→mitigation mapping, and honest coverage notes.
+Stand up a **cSRX** as an L3 firewall between an attacker and a target and show it **rate-limits the flood attacks** the lab generates: `attacker → cSRX (routed) → target`. This is the *enforcement* half of the "firewall + AI" story — see [`../docs/FIREWALL.md`](../docs/FIREWALL.md) for the full design and the honest layer split.
 
-> **You supply the cSRX image + license.** They're not in this repo — download from Juniper (60-day free eval, SKU `S-cSRX Container Firewall-A1`). Everything else here is a runnable scaffold with clear placeholders.
+> **cSRX has no GTP ALG.** It can rate-limit volumetric **floods** (via DoS screens) but cannot deep-inspect / drop **malformed** GTP-U — that needs vSRX/SRX. Malformed and protocol-abuse traffic is caught by the **ML detector** instead. Details in `../docs/FIREWALL.md`.
+
+> **You supply the cSRX image + license** (Juniper, 60-day eval). See [`csrx_loading.md`](csrx_loading.md).
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `csrx_loading.md` | How to load the cSRX image (`docker load`) and apply the eval license |
-| `setup.sh` | Create networks, launch cSRX (secure-wire), attach interfaces, start attacker + target |
-| `csrx.conf` | Junos config template: secure-wire + GTP inspection profile + UDP-flood screen |
-| `run_demo.sh` | Fire valid / malformed / flood GTP-U through the firewall and count what the target receives |
+| `csrx_loading.md` | Load the cSRX image (`docker load`) and apply the eval license |
+| `setup.sh` | Networks + cSRX in **routing** mode + attacker/target, attacker routed to target via cSRX |
+| `csrx.conf` | Junos config: L3 interfaces, zones, **UDP-flood screen**, permit policy (no GTP) |
+| `run_demo.sh` | Fire valid / GTP-U flood / PFCP flood / malformed and count what the target receives |
 
 ## Steps
 
 ```bash
-# 0. Load the cSRX image you downloaded from Juniper (.tgz or .tar), and point the
-#    scripts at it. Run this on the host where Docker/the lab run. The .tgz is a
-#    Docker image archive — you load it, you don't place it in a folder.
-docker load -i /path/to/cSRX*.tgz     # keep the file in firewall/images/ (gitignored)
-docker images | grep -i csrx          # note the REPOSITORY:TAG it loaded as
-export CSRX_IMAGE=csrx:<tag>
-# license (separate): apply the 60-day eval after the container is up, in the Junos
-# CLI:  request system license add   (per your Juniper eval instructions)
+# 0. Load + name the image (see csrx_loading.md); export in THIS shell
+export CSRX_IMAGE="csrx:26.2R1.7"
 
-# 1. Stand up the testbed
+# 1. Stand up the testbed (fixed addressing: attacker 10.10.1.10, target 10.10.2.10, cSRX .2)
 ./firewall/setup.sh
 
-# 2. Load the firewall config into the running cSRX
-docker exec -it csrx cli
-#   configure
-#   load set terminal        (paste the contents of csrx.conf, then Ctrl-D)
-#   commit and-quit
+# 2. Load the config into cSRX
+grep -E '^set ' firewall/csrx.conf > /tmp/csrx.set
+docker cp /tmp/csrx.set csrx:/tmp/csrx.set
+docker exec -it csrx cli        # then: configure ; load set /tmp/csrx.set ; commit
 
-# 3. Find the target's IP, then run the demo
-docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' fw-target
-TARGET_IP=<that ip> ./firewall/run_demo.sh
+# 3. Verify the interface mapping (ge-0/0/0 should be 10.10.1.2; swap in csrx.conf if reversed)
+docker exec -it csrx cli -c "show interfaces terse" | grep ge-
+
+# 4. Apply the eval license if not done (Junos CLI): request system license add terminal
+
+# 5. Run the demo
+./firewall/run_demo.sh
 ```
 
 ## What you should see
 
 | Traffic | Expected at the target | Why |
 |---|---|---|
-| valid GTP-U (N3) | passes (~all received) | well-formed, permitted |
-| malformed GTP-U (N3) | ~0 received | GTP-U inspection drops invalid message types / headers |
+| valid GTP-U (N3) | passes (~all received) | well-formed, permitted, under the rate threshold |
 | GTP-U flood (N3) | capped far below what was sent | UDP-flood screen rate-limits it |
-| PFCP session flood (N4) | capped far below what was sent | same UDP-flood screen (PFCP is UDP/8805) — **volumetric** defense only |
+| PFCP session flood (N4) | capped far below what was sent | same UDP-flood screen (PFCP is UDP/8805) |
+| malformed GTP-U (N3) | **passes through** | cSRX has no GTP inspection — **this is the ML detector's job** |
 
-> PFCP defense is rate-limiting only — SRX doesn't deep-inspect PFCP. Low-rate PFCP abuse (association/heartbeat) slips past the firewall and is caught by the ML detector instead.
+Confirm the *why* on the cSRX: `show security screen statistics zone untrust` (flood drops), `show security flow session summary`.
 
-Confirm the *why* on the cSRX: `show security gprs gtp counters`, `show security screen statistics zone untrust`.
-
-**Before/after:** to show the contrast, first commit `csrx.conf` with the GTP profile removed from the policy (plain permit) — malformed traffic gets through — then add it back and watch it get blocked. That side-by-side is the demo money-shot.
+**Before/after for the floods:** raise the screen threshold above the attack rate (flood gets through), commit, run; then lower it and re-run to watch the rate-limit engage. That side-by-side is the demo money-shot.
 
 ## Teardown
 
@@ -63,6 +60,6 @@ docker network rm fw-mgmt fw-left fw-right
 
 ## Caveats
 
-- cSRX Docker networking and Junos syntax are **version-specific** — validate against your image and the Juniper docs cited in `../docs/FIREWALL.md`.
-- True L2 secure-wire wants both data segments in one subnet; Docker disallows overlapping bridge subnets, so follow Juniper's secure-wire-between-containers walkthrough, or use `CSRX_FORWARD_MODE="routing"` with the attacker routed to the target through the cSRX. `setup.sh` flags this.
-- PFCP (N4) deep inspection on SRX is limited — this testbed focuses on the strong case, N3 GTP-U. The ML detector (`../detector/`) covers what the firewall can't.
+- cSRX config and Docker interface mapping are **version-specific** (`csrx:26.2R1.7` here) — validate against the Juniper docs.
+- The screen is **volumetric** (rate-limit only), not protocol inspection.
+- cSRX **secure-wire** mode can't attach zones/screens to its interfaces, which is why this uses **routed** mode.

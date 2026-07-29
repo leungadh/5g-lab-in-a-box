@@ -1,6 +1,6 @@
 <svg viewBox="0 0 1120 660" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" role="img" aria-labelledby="t d">
-  <title id="t">cSRX GTP-firewall testbed topology</title>
-  <desc id="d">An attacker container sends valid, malformed, and flood GTP-U traffic through a Juniper cSRX firewall in secure-wire mode to a target container. Valid traffic passes, malformed GTP-U is dropped by GTP-U inspection, and the flood is rate-limited by a UDP screen. A management interface connects to the Junos CLI.</desc>
+  <title id="t">cSRX flood-firewall testbed topology (routed mode)</title>
+  <desc id="d">An attacker container sends valid, flood, and malformed GTP-U/PFCP traffic through a Juniper cSRX firewall in routed mode to a target container. Valid traffic passes, the floods are rate-limited by a UDP-flood screen, and malformed traffic passes through because cSRX has no GTP inspection — that is caught by the ML detector instead.</desc>
   <defs>
     <marker id="aG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1C9E74"/></marker>
     <marker id="aC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#D85A30"/></marker>
@@ -8,77 +8,76 @@
     <marker id="aM" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6C6E80"/></marker>
   </defs>
   <rect x="0" y="0" width="1120" height="660" fill="#FBFAF7"/>
-  <text x="45" y="48" font-size="25" font-weight="700" fill="#1E2130">cSRX GTP-Firewall Testbed — Phase 1 Topology</text>
-  <text x="45" y="74" font-size="14.5" fill="#5F5E6E">Where the attacks come from, how they cross the firewall, and what reaches the target.</text>
+  <text x="45" y="46" font-size="24" font-weight="700" fill="#1E2130">cSRX Flood-Firewall Testbed — Routed Mode (Part 1)</text>
+  <text x="45" y="72" font-size="14.5" fill="#5F5E6E">cSRX rate-limits the volumetric floods; malformed traffic passes through (no GTP inspection) — the detector's job.</text>
 
-  <!-- management note -->
   <rect x="490" y="98" width="200" height="42" rx="8" fill="#F1EFE8" stroke="#B4B2A9" stroke-width="1.3"/>
   <text x="590" y="119" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2C2C2A">Junos CLI · csrx.conf</text>
-  <text x="590" y="133" text-anchor="middle" font-size="10.5" fill="#6C6E80">management (eth0)</text>
+  <text x="590" y="133" text-anchor="middle" font-size="10.5" fill="#6C6E80">management (fw-mgmt)</text>
   <line x1="590" y1="140" x2="590" y2="172" stroke="#6C6E80" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#aM)"/>
 
   <!-- ATTACKER -->
   <rect x="45" y="180" width="250" height="285" rx="12" fill="#FBEDE7" stroke="#D85A30" stroke-width="1.5"/>
   <circle cx="80" cy="212" r="13" fill="#D85A30"/>
   <text x="102" y="210" font-size="17" font-weight="700" fill="#993C1D">Attacker</text>
-  <text x="102" y="228" font-size="11" fill="#6C6E80">container · runs attacks/gtpu/*</text>
-  <text x="65" y="256" font-size="11.5" font-weight="700" fill="#993C1D">Traffic it sends (N3 · GTP-U, UDP 2152):</text>
-  <rect x="65" y="266" width="210" height="40" rx="7" fill="#E5F5EF"/><circle cx="85" cy="286" r="7" fill="#1C9E74"/><text x="100" y="283" font-size="13" font-weight="700" fill="#1E2130">valid GTP-U</text><text x="100" y="298" font-size="10.5" fill="#5F5E6E">well-formed, low rate</text>
-  <rect x="65" y="312" width="210" height="40" rx="7" fill="#FBE4DC"/><circle cx="85" cy="332" r="7" fill="#D85A30"/><text x="100" y="329" font-size="13" font-weight="700" fill="#1E2130">malformed GTP-U</text><text x="100" y="344" font-size="10.5" fill="#5F5E6E">bad message types / headers</text>
-  <rect x="65" y="358" width="210" height="40" rx="7" fill="#FBF3E0"/><circle cx="85" cy="378" r="7" fill="#B8860B"/><text x="100" y="375" font-size="13" font-weight="700" fill="#1E2130">GTP-U flood</text><text x="100" y="390" font-size="10.5" fill="#5F5E6E">valid packets, very high rate</text>
-  <text x="170" y="430" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5F5E6E">fw-left  ·  untrust segment</text>
-  <text x="170" y="446" text-anchor="middle" font-size="10.5" fill="#6C6E80">cSRX ge-0/0/0</text>
+  <text x="102" y="228" font-size="11" fill="#6C6E80">10.10.1.10 · runs attacks/*</text>
+  <text x="65" y="256" font-size="11.5" font-weight="700" fill="#993C1D">Traffic it sends (N3/N4):</text>
+  <rect x="65" y="266" width="210" height="40" rx="7" fill="#E5F5EF"/><circle cx="85" cy="286" r="7" fill="#1C9E74"/><text x="100" y="283" font-size="13" font-weight="700" fill="#1E2130">valid GTP-U</text><text x="100" y="298" font-size="10.5" fill="#5F5E6E">low rate</text>
+  <rect x="65" y="312" width="210" height="40" rx="7" fill="#FBF3E0"/><circle cx="85" cy="332" r="7" fill="#B8860B"/><text x="100" y="329" font-size="13" font-weight="700" fill="#1E2130">GTP-U / PFCP flood</text><text x="100" y="344" font-size="10.5" fill="#5F5E6E">very high rate (DoS)</text>
+  <rect x="65" y="358" width="210" height="40" rx="7" fill="#FBE4DC"/><circle cx="85" cy="378" r="7" fill="#D85A30"/><text x="100" y="375" font-size="13" font-weight="700" fill="#1E2130">malformed GTP-U</text><text x="100" y="390" font-size="10.5" fill="#5F5E6E">bad message types / headers</text>
+  <text x="170" y="430" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5F5E6E">fw-left · untrust</text>
+  <text x="170" y="446" text-anchor="middle" font-size="10.5" fill="#6C6E80">10.10.1.0/24 → cSRX ge-0/0/0</text>
 
   <!-- cSRX -->
   <rect x="490" y="172" width="200" height="300" rx="12" fill="#16183A"/>
   <rect x="490" y="172" width="200" height="8" rx="4" fill="#1FA6A0"/>
   <text x="590" y="212" text-anchor="middle" font-size="22" font-weight="700" fill="#FFFFFF">cSRX</text>
-  <text x="590" y="231" text-anchor="middle" font-size="11.5" fill="#8FE3DE">secure-wire firewall</text>
-  <rect x="512" y="252" width="156" height="34" rx="7" fill="#23264F"/><text x="590" y="274" text-anchor="middle" font-size="12" font-weight="600" fill="#C9CCEF">GTP-U inspection</text>
-  <rect x="512" y="294" width="156" height="34" rx="7" fill="#23264F"/><text x="590" y="316" text-anchor="middle" font-size="12" font-weight="600" fill="#C9CCEF">UDP-flood screen</text>
-  <rect x="512" y="336" width="156" height="46" rx="7" fill="#23264F"/><text x="590" y="356" text-anchor="middle" font-size="11" font-weight="600" fill="#C9CCEF">secure-wire</text><text x="590" y="371" text-anchor="middle" font-size="10.5" fill="#8A8FC0">ge-0/0/0 ⇄ ge-0/0/1</text>
-  <text x="500" y="452" font-size="10.5" fill="#8A8FC0">ge-0/0/0</text>
-  <text x="638" y="452" font-size="10.5" fill="#8A8FC0">ge-0/0/1</text>
+  <text x="590" y="231" text-anchor="middle" font-size="11.5" fill="#8FE3DE">routed firewall</text>
+  <rect x="512" y="252" width="156" height="34" rx="7" fill="#23264F"/><text x="590" y="274" text-anchor="middle" font-size="12" font-weight="600" fill="#C9CCEF">UDP-flood screen</text>
+  <rect x="512" y="294" width="156" height="34" rx="7" fill="#23264F"/><text x="590" y="316" text-anchor="middle" font-size="12" font-weight="600" fill="#C9CCEF">stateful policy</text>
+  <rect x="512" y="336" width="156" height="46" rx="7" fill="#23264F"/><text x="590" y="356" text-anchor="middle" font-size="11" font-weight="600" fill="#C9CCEF">L3 routing</text><text x="590" y="371" text-anchor="middle" font-size="10.5" fill="#8A8FC0">ge-0/0/0 → ge-0/0/1</text>
+  <text x="498" y="452" font-size="10" fill="#8A8FC0">ge-0/0/0 .2</text>
+  <text x="632" y="452" font-size="10" fill="#8A8FC0">ge-0/0/1 .2</text>
+  <text x="590" y="463" text-anchor="middle" font-size="9.5" fill="#6b6f9e">no GTP inspection (cSRX)</text>
 
   <!-- TARGET -->
   <rect x="880" y="205" width="200" height="185" rx="12" fill="#E5F5EF" stroke="#1C9E74" stroke-width="1.5"/>
   <circle cx="915" cy="238" r="13" fill="#1C9E74"/>
   <text x="937" y="236" font-size="17" font-weight="700" fill="#0F6E56">Target</text>
-  <text x="937" y="253" font-size="11" fill="#6C6E80">container</text>
+  <text x="937" y="253" font-size="11" fill="#6C6E80">10.10.2.10</text>
   <text x="900" y="290" font-size="12" fill="#1E2130">Records what got through</text>
   <text x="900" y="309" font-size="12" font-weight="700" fill="#0F6E56">tcpdump ·  count</text>
-  <text x="980" y="358" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5F5E6E">fw-right · trust segment</text>
-  <text x="980" y="374" text-anchor="middle" font-size="10.5" fill="#6C6E80">cSRX ge-0/0/1</text>
+  <text x="980" y="358" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5F5E6E">fw-right · trust</text>
+  <text x="980" y="374" text-anchor="middle" font-size="10.5" fill="#6C6E80">10.10.2.0/24 → cSRX ge-0/0/1</text>
 
-  <!-- FLOW 1: valid (passes) y=252 -->
+  <!-- FLOW 1: valid passes -->
   <line x1="295" y1="258" x2="486" y2="258" stroke="#1C9E74" stroke-width="3" marker-end="url(#aG)"/>
   <line x1="690" y1="258" x2="876" y2="258" stroke="#1C9E74" stroke-width="3" marker-end="url(#aG)"/>
   <text x="390" y="248" text-anchor="middle" font-size="11" font-weight="700" fill="#0F6E56">valid</text>
   <text x="783" y="248" text-anchor="middle" font-size="11" font-weight="700" fill="#0F6E56">✓ passes</text>
 
-  <!-- FLOW 2: malformed (dropped) y=322 -->
-  <line x1="295" y1="322" x2="486" y2="322" stroke="#D85A30" stroke-width="3" marker-end="url(#aC)"/>
-  <text x="390" y="312" text-anchor="middle" font-size="11" font-weight="700" fill="#993C1D">malformed</text>
-  <circle cx="705" cy="322" r="15" fill="#C0392B"/>
-  <text x="705" y="328" text-anchor="middle" font-size="17" font-weight="700" fill="#FFFFFF">✕</text>
-  <text x="783" y="318" text-anchor="middle" font-size="11" font-weight="700" fill="#C0392B">DROPPED</text>
-  <text x="783" y="333" text-anchor="middle" font-size="9.5" fill="#993C1D">GTP-U inspection</text>
+  <!-- FLOW 2: flood rate-limited -->
+  <line x1="295" y1="322" x2="486" y2="322" stroke="#B8860B" stroke-width="5" marker-end="url(#aA)"/>
+  <line x1="690" y1="322" x2="876" y2="322" stroke="#B8860B" stroke-width="1.6" marker-end="url(#aA)"/>
+  <text x="390" y="312" text-anchor="middle" font-size="11" font-weight="700" fill="#7A5B08">flood (high rate)</text>
+  <text x="783" y="312" text-anchor="middle" font-size="11" font-weight="700" fill="#7A5B08">RATE-LIMITED</text>
+  <text x="783" y="327" text-anchor="middle" font-size="9.5" fill="#7A5B08">UDP screen · capped</text>
 
-  <!-- FLOW 3: flood (rate-limited) y=392 -->
-  <line x1="295" y1="392" x2="486" y2="392" stroke="#B8860B" stroke-width="5" marker-end="url(#aA)"/>
-  <line x1="690" y1="392" x2="876" y2="392" stroke="#B8860B" stroke-width="1.6" marker-end="url(#aA)"/>
-  <text x="390" y="382" text-anchor="middle" font-size="11" font-weight="700" fill="#7A5B08">flood (high rate)</text>
-  <text x="783" y="382" text-anchor="middle" font-size="11" font-weight="700" fill="#7A5B08">rate-limited</text>
-  <text x="783" y="396" text-anchor="middle" font-size="9.5" fill="#7A5B08">UDP screen · capped</text>
+  <!-- FLOW 3: malformed passes -> detector -->
+  <line x1="295" y1="392" x2="486" y2="392" stroke="#D85A30" stroke-width="3" marker-end="url(#aC)"/>
+  <line x1="690" y1="392" x2="876" y2="392" stroke="#D85A30" stroke-width="3" stroke-dasharray="6 4" marker-end="url(#aC)"/>
+  <text x="390" y="382" text-anchor="middle" font-size="11" font-weight="700" fill="#993C1D">malformed</text>
+  <text x="783" y="382" text-anchor="middle" font-size="11" font-weight="700" fill="#993C1D">passes cSRX →</text>
+  <text x="783" y="397" text-anchor="middle" font-size="9.5" fill="#993C1D">caught by ML detector</text>
 
   <!-- legend -->
   <rect x="45" y="500" width="1035" height="112" rx="10" fill="#F2F3F7"/>
   <text x="70" y="528" font-size="13" font-weight="700" fill="#1E2130">How to read it</text>
-  <line x1="70" y1="552" x2="110" y2="552" stroke="#1C9E74" stroke-width="3" marker-end="url(#aG)"/><text x="120" y="556" font-size="12" fill="#42445A">Valid GTP-U passes through to the target.</text>
-  <line x1="70" y1="576" x2="110" y2="576" stroke="#D85A30" stroke-width="3" marker-end="url(#aC)"/><circle cx="122" cy="576" r="8" fill="#C0392B"/><text x="138" y="580" font-size="12" fill="#42445A">Malformed GTP-U is dropped at the firewall (GTP-U inspection).</text>
-  <line x1="70" y1="600" x2="110" y2="600" stroke="#B8860B" stroke-width="4" marker-end="url(#aA)"/><text x="120" y="604" font-size="12" fill="#42445A">GTP-U flood is rate-limited by the UDP screen — only a trickle gets out.</text>
-  <text x="600" y="556" font-size="12" font-weight="700" fill="#16183A">Scope of this testbed</text>
-  <text x="600" y="578" font-size="11.5" fill="#42445A">Phase 1 targets the strong case: N3 GTP-U attacks. PFCP (N4) and</text>
-  <text x="600" y="595" font-size="11.5" fill="#42445A">signaling (N2) attacks fall outside this firewall path — that's where the</text>
-  <text x="600" y="612" font-size="11.5" fill="#42445A">ML detector (detector/) covers the gap. Firewall enforces + AI detects.</text>
+  <line x1="70" y1="552" x2="110" y2="552" stroke="#1C9E74" stroke-width="3" marker-end="url(#aG)"/><text x="120" y="556" font-size="12" fill="#42445A">Valid traffic passes through to the target.</text>
+  <line x1="70" y1="576" x2="110" y2="576" stroke="#B8860B" stroke-width="4" marker-end="url(#aA)"/><text x="120" y="580" font-size="12" fill="#42445A">GTP-U / PFCP floods are rate-limited by the UDP screen — only a trickle gets out.</text>
+  <line x1="70" y1="600" x2="110" y2="600" stroke="#D85A30" stroke-width="3" stroke-dasharray="6 4" marker-end="url(#aC)"/><text x="120" y="604" font-size="12" fill="#42445A">Malformed traffic passes cSRX (no GTP inspection) — the ML detector catches it.</text>
+  <text x="640" y="556" font-size="12" font-weight="700" fill="#16183A">Firewall + AI, layered</text>
+  <text x="640" y="578" font-size="11.5" fill="#42445A">cSRX (this box) enforces the obvious: it caps volumetric</text>
+  <text x="640" y="595" font-size="11.5" fill="#42445A">floods. The ML detector (detector/) catches the malformed,</text>
+  <text x="640" y="612" font-size="11.5" fill="#42445A">the protocol-abuse, and the novel — what the firewall can't see.</text>
 </svg>
