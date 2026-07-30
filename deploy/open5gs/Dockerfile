@@ -20,7 +20,8 @@ ARG OPEN5GS_VERSION=v2.7.5
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      git ca-certificates meson ninja-build build-essential flex bison \
+      git ca-certificates meson ninja-build cmake \
+      python3-pip python3-setuptools python3-wheel build-essential flex bison \
       libsctp-dev libgnutls28-dev libgcrypt-dev libssl-dev libidn11-dev \
       libmongoc-dev libbson-dev libyaml-dev libnghttp2-dev libmicrohttpd-dev \
       libcurl4-gnutls-dev libtins-dev libtalloc-dev iproute2 iptables \
