@@ -32,7 +32,7 @@ cap() {  # cap <label> <seconds>  -> sets CAP_PID
   local label="$1" secs="$2" ts out
   ts="$(date +%Y%m%d-%H%M%S)"; out="$PCAPS/${label}_${ts}.pcap"
   echo "[dataset] capture $label for ${secs}s -> $(basename "$out")"
-  sudo timeout "$secs" nsenter -t "$UPF_PID" -n tcpdump -i any -w "$out" \
+  sudo timeout "$secs" nsenter -t "$UPF_PID" -n tcpdump -Z root -i any -w "$out" \
     'udp port 2152 or udp port 8805' 2>/dev/null &
   CAP_PID=$!
   sleep 1   # let tcpdump come up before traffic starts
