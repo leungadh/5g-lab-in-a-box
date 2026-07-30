@@ -37,7 +37,8 @@ class IsoForestDetector:
 class AutoencoderDetector:
     name = "autoencoder"
 
-    def __init__(self, hidden=(16, 8), epochs: int = 80, lr: float = 1e-3, seed: int = 7):
+    def __init__(self, hidden=(16, 8), epochs: int = 80, lr: float = 1e-3, seed: int = 7,
+                 device: str = "auto"):
         self.hidden = hidden
         self.epochs = epochs
         self.lr = lr
@@ -45,6 +46,8 @@ class AutoencoderDetector:
         self.scaler = StandardScaler()
         self._torch = None
         self.net = None
+        self.device_pref = device   # "auto" | "cuda" | "cpu"
+        self.device = None
 
     @staticmethod
     def available() -> bool:
@@ -66,12 +69,21 @@ class AutoencoderDetector:
             nn.Linear(h1, d_in),
         )
         self._torch = torch
+        dev = self.device_pref
+        if dev == "auto":
+            dev = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = torch.device(dev)
+        self.net.to(self.device)
+        if self.device.type == "cuda":
+            print(f"[autoencoder] training on GPU: {torch.cuda.get_device_name(0)}")
+        else:
+            print("[autoencoder] training on CPU")
 
     def fit(self, X_benign: np.ndarray) -> "AutoencoderDetector":
         import torch
         Xs = self.scaler.fit_transform(X_benign).astype("float32")
         self._build(Xs.shape[1])
-        X = torch.from_numpy(Xs)
+        X = torch.from_numpy(Xs).to(self.device)
         opt = torch.optim.Adam(self.net.parameters(), lr=self.lr)
         loss_fn = torch.nn.MSELoss()
         self.net.train()
@@ -88,7 +100,7 @@ class AutoencoderDetector:
         Xs = self.scaler.transform(X).astype("float32")
         self.net.eval()
         with torch.no_grad():
-            recon = self.net(torch.from_numpy(Xs)).numpy()
+            recon = self.net(torch.from_numpy(Xs).to(self.device)).cpu().numpy()
         return ((Xs - recon) ** 2).mean(axis=1)  # per-row reconstruction MSE
 
 
