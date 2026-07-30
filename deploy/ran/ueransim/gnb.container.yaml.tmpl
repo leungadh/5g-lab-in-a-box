@@ -1,0 +1,22 @@
+# UERANSIM gNB (container variant). ${SELF_IP}/${AMF_IP} are filled in by entrypoint.sh
+# from the container's own IP and the resolved 'amf' service on the core network.
+# Slice is sst:1 only (no sd) to match the source-built Open5GS defaults + the dbctl
+# subscriber. Keep MCC/MNC/TAC/SST in sync with the core (.env).
+mcc: '999'
+mnc: '70'
+nci: '0x000000010'
+idLength: 32
+tac: 1
+
+linkIp: ${SELF_IP}
+ngapIp: ${SELF_IP}
+gtpIp: ${SELF_IP}
+
+amfConfigs:
+  - address: ${AMF_IP}
+    port: 38412
+
+slices:
+  - sst: 1
+
+ignoreStreamIds: true
