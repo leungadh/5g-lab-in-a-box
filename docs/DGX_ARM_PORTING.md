@@ -23,18 +23,19 @@ On x86 we hit two kernel walls: containers couldn't create TUN devices (forcing 
 ```bash
 uname -a                                             # arch + kernel version
 # 1. Can a CONTAINER create a TUN device? (decides all-Docker vs native UPF)
-docker run --rm --privileged --device /dev/net/tun --entrypoint sh busybox \
-  -c 'ip tuntap add name t0 mode tun && echo "CONTAINER TUN: OK" || echo "CONTAINER TUN: FAILED"' 2>/dev/null || \
-  echo "(busybox lacks ip — try: docker run --rm --privileged alpine sh -c 'apk add -q iproute2; ip tuntap add name t0 mode tun && echo OK')"
-# 2. Host TUN + forwarding
-sudo modprobe tun; lsmod | grep -E '^tun' ; ls -l /dev/net/tun
+#    Use alpine + real iproute2 — busybox's built-in `ip` lacks `tuntap` and gives false negatives.
+docker run --rm --privileged --device /dev/net/tun alpine \
+  sh -c 'apk add -q iproute2; ip tuntap add name t0 mode tun; echo "exit=$?"'
+# 2. Host TUN + forwarding  (CONFIG_TUN=y means TUN is built-in; lsmod will be empty — that's fine)
+sudo ip tuntap add name testtun0 mode tun && echo "HOST TUN: OK" && sudo ip tuntap del name testtun0 mode tun
 sysctl net.ipv4.ip_forward
-# 3. Kernel headers (needed if you build the gtp5g module for a containerized UPF)
+grep CONFIG_TUN /boot/config-$(uname -r) 2>/dev/null
+# 3. Kernel headers (needed only if you build the gtp5g module for a containerized UPF)
 ls /lib/modules/$(uname -r)/build 2>/dev/null && echo "headers present" || echo "install linux-headers / DGX equivalent"
 ```
 
-- **CONTAINER TUN: OK** → you can run the all-Docker design (containerized UPF).
-- **CONTAINER TUN: FAILED** → use **Path B (native UPF on the host)** again — same as x86; see [`PLATFORM.md`](PLATFORM.md) §12.
+- **`exit=0`** (container TUN works) → run the clean **all-Docker design** (containerized UPF, the repo's default Path A compose). *This is the case on the DGX Spark.*
+- **`ioctl(TUNSETIFF): Operation not permitted` / `exit≠0`** → container TUN is blocked → use **Path B (native UPF)** as on x86; see [`PLATFORM.md`](PLATFORM.md) §12.
 
 ## Step 1 — UERANSIM on ARM (unchanged)
 
@@ -50,7 +51,14 @@ sudo ln -sf "$PWD/build/nr-cli" /usr/local/bin/nr-cli
 
 ## Step 2 — Open5GS on ARM (pick ONE)
 
-You can't `docker pull gradiant/open5gs` (amd64). Two ways to get an arm64 Open5GS:
+**First, try pulling — the image may already be multi-arch:**
+
+```bash
+docker pull gradiant/open5gs:2.7.5      # if it pulls, Docker grabbed the arm64 variant — use as-is
+```
+If that succeeds, you're done: the repo's `deploy/open5gs/docker-compose.yml` works unchanged (with container TUN available, keep the default all-Docker/Path A compose). If it errors with `no matching manifest for linux/arm64`, the image is amd64-only — use one of the two options below.
+
+Two ways to get an arm64 Open5GS:
 
 **Option A — build arm64 Docker images yourself** (keeps the `deploy/open5gs/docker-compose.yml` flow). On the ARM DGX, a native `docker build` produces arm64 images:
 
