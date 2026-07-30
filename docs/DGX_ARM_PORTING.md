@@ -60,17 +60,18 @@ If that succeeds, you're done: the repo's `deploy/open5gs/docker-compose.yml` wo
 
 Two ways to get an arm64 Open5GS:
 
-**Option A — build arm64 Docker images yourself** (keeps the `deploy/open5gs/docker-compose.yml` flow). On the ARM DGX, a native `docker build` produces arm64 images:
+**Option A — build an arm64 Open5GS image** (keeps the `make up` / compose flow). The repo ships a ready Dockerfile at [`../deploy/open5gs/Dockerfile`](../deploy/open5gs/Dockerfile) that builds Open5GS from source into the same layout the compose expects (binaries on PATH, configs in `/opt/open5gs/etc/open5gs`). On the ARM DGX a native build = arm64:
 
 ```bash
-# from an Open5GS Dockerfile (Open5GS repo, or a community/gradiant Dockerfile):
-git clone https://github.com/open5gs/open5gs.git
-cd open5gs
-docker build -t open5gs:arm64 .          # native build on the DGX = arm64 image
-# then point deploy/open5gs/docker-compose.yml + .env at open5gs:arm64
-#   (set OPEN5GS_IMAGE=open5gs:arm64 in deploy/open5gs/.env)
+docker build -t open5gs:arm64 deploy/open5gs
+echo 'OPEN5GS_IMAGE=open5gs:arm64' >> deploy/open5gs/.env
+make configs        # re-extracts default configs from YOUR image
+make up
 ```
-Adjust the `command:` per-NF entries if the image's entrypoint differs from gradiant's, and re-extract the default configs from *your* image with `make configs` (it reads `$OPEN5GS_IMAGE`).
+
+Two wrinkles with the all-Docker path on arm64:
+- **WebUI:** `gradiant/open5gs-webui` is also amd64-only. Either build it from the Open5GS repo's `webui/` (a Node.js app — `docker build` on the DGX = arm64), or **skip it** and provision the subscriber another way (below). The WebUI is only for managing subscribers.
+- **Subscriber provisioning:** without the WebUI, add the test IMSI directly — run `open5gs-dbctl` against the Mongo container (`docker exec` into it, or expose port 27017). `make provision-subscriber`/`make webui-admin` may need the Mongo port reachable; adjust for your setup.
 
 **Option B — install Open5GS natively on the host** (pairs naturally with Path B / native UPF):
 
