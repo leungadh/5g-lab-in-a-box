@@ -85,6 +85,7 @@ make down
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — milestones from empty host to a labeled dataset, including the handoff to **Idea 2 (GTP/PFCP anomaly detector)**.
 - [`docs/DETECTION.md`](docs/DETECTION.md) — how the ML detection works, honest limitations, and the step-by-step first real training run.
 - [`docs/FIREWALL.md`](docs/FIREWALL.md) — enhancement: inserting a Juniper cSRX to block the GTP-U attacks (firewall + AI, defense in depth). Scaffold in [`firewall/`](firewall/).
+- [`docs/DGX_ARM_PORTING.md`](docs/DGX_ARM_PORTING.md) — porting the lab to ARM64 / DGX Spark: what recompiles, the cSRX caveat, and step-by-step.
 - [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md) — scope of use, attack classes, and why they map to real MNO risk.
 
 ## Status
