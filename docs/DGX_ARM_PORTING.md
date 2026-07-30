@@ -148,8 +148,17 @@ CORE_NET=open5gs-core deploy/ran/ueransim/run-containers.sh up
 ```
 
 Success = the UE log shows `PDU Session establishment is successful` and `uesimtun0` gets a
-`10.45.0.0/16` address. Verify the user plane with
-`docker exec ue ping -c3 -I uesimtun0 10.45.0.1`.
+`10.45.0.0/16` address. Verify the user plane **and** egress with:
+
+```bash
+docker exec ue ping -c3 -I uesimtun0 10.45.0.1     # UPF gateway (N3/GTP-U user plane)
+docker exec ue ping -c3 -I uesimtun0 8.8.8.8       # internet egress (works via Docker NAT)
+```
+
+The UPF's `ogstun` gateway IP + egress MASQUERADE are set up automatically by the image
+entrypoint ([`../deploy/open5gs/docker-entrypoint.sh`](../deploy/open5gs/docker-entrypoint.sh)) —
+a from-source Open5GS build doesn't do this itself. Internet egress works on the DGX (Docker
+NAT), where it failed on the x86 host (broken host-kernel forwarding).
 
 Gotchas we hit (all handled above): `cmake` missing from the Open5GS build; the WebUI +
 `mongo` pulls failing because the amd64 WebUI has no arm64 manifest (name the services to

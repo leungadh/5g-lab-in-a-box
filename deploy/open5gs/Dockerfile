@@ -35,3 +35,8 @@ RUN git clone --depth 1 --branch ${OPEN5GS_VERSION} https://github.com/open5gs/o
  && rm -rf /src
 
 ENV PATH="/opt/open5gs/bin:${PATH}"
+
+# For the UPF, the entrypoint sets up ogstun + egress NAT; other NFs exec unchanged.
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
