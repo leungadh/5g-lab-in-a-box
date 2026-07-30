@@ -37,9 +37,15 @@ ls /lib/modules/$(uname -r)/build 2>/dev/null && echo "headers present" || echo 
 - **`exit=0`** (container TUN works) → run the clean **all-Docker design** (containerized UPF, the repo's default Path A compose). *This is the case on the DGX Spark.*
 - **`ioctl(TUNSETIFF): Operation not permitted` / `exit≠0`** → container TUN is blocked → use **Path B (native UPF)** as on x86; see [`PLATFORM.md`](PLATFORM.md) §12.
 
-## Step 1 — UERANSIM on ARM (unchanged)
+## Step 1 — UERANSIM on ARM
 
-Identical to x86 — the compiler emits ARM64 automatically:
+> **All-Docker path (recommended on the DGX):** don't build UERANSIM natively — use the
+> containerized harness in [`../deploy/ran/ueransim/`](../deploy/ran/ueransim/) (Dockerfile +
+> `run-containers.sh`), which runs the gNB + UE on the core network so N2/N3 use container
+> addressing. See "Verified end-to-end bring-up" below. The native build here is only for a
+> host-based RAN.
+
+Native build (host RAN) — the compiler emits ARM64 automatically:
 
 ```bash
 sudo apt install -y make gcc g++ cmake libsctp-dev lksctp-tools iproute2 git
@@ -103,6 +109,53 @@ make ran-up
 ```
 
 Reconcile PLMN/keys/subnet across `.env`, the NF configs, and `ue.yaml` exactly as on x86. For capture, `capture/capture.sh` already defaults to `-i any`, which works regardless of layout.
+
+## Verified end-to-end bring-up (DGX Spark, arm64, all-Docker)
+
+This is the exact sequence that brought a full UE attach up on the DGX Spark (uesimtun0 →
+`10.45.0.2/16`). Everything runs in Docker on the `open5gs-core` network — **UERANSIM runs
+containerized, not natively on the host**, because a host gNB collides with the container
+UPF on GTP-U port 2152 and can't route N3 back across the docker NAT.
+
+```bash
+# 1. Build the arm64 Open5GS image (from source; gradiant images are amd64-only)
+docker build -t open5gs:arm64 deploy/open5gs
+
+# 2. Point compose at it, extract its default configs
+make env
+sed -i 's|OPEN5GS_IMAGE=.*|OPEN5GS_IMAGE=open5gs:arm64|' deploy/open5gs/.env
+make configs OPEN5GS_IMAGE=open5gs:arm64
+
+# 3. Rewrite the source configs (127.0.0.x loopback) for the container network
+python3 -m pip install --break-system-packages pyyaml
+python3 scripts/dockerize_open5gs_configs.py deploy/open5gs/configs
+
+# 4. Bring up the core WITHOUT the amd64-only WebUI
+docker compose -f deploy/open5gs/docker-compose.yml --env-file deploy/open5gs/.env up -d \
+  mongo nrf scp amf ausf udm udr pcf bsf nssf smf upf
+
+# 5. Provision the test subscriber via dbctl INSIDE the mongo container
+set -a; . ./.env; set +a
+MONGO=$(docker compose -f deploy/open5gs/docker-compose.yml ps -q mongo)
+curl -fsSL https://raw.githubusercontent.com/open5gs/open5gs/v2.7.5/misc/db/open5gs-dbctl -o /tmp/open5gs-dbctl
+docker cp /tmp/open5gs-dbctl "$MONGO":/usr/local/bin/open5gs-dbctl
+docker exec "$MONGO" chmod +x /usr/local/bin/open5gs-dbctl
+docker exec -e DB_URI="mongodb://127.0.0.1/open5gs" "$MONGO" open5gs-dbctl add "$IMSI" "$KI" "$OPC"
+
+# 6. Build + run containerized UERANSIM (gNB + UE) on the core network
+docker build -t ueransim:arm64 deploy/ran/ueransim
+CORE_NET=open5gs-core deploy/ran/ueransim/run-containers.sh up
+```
+
+Success = the UE log shows `PDU Session establishment is successful` and `uesimtun0` gets a
+`10.45.0.0/16` address. Verify the user plane with
+`docker exec ue ping -c3 -I uesimtun0 10.45.0.1`.
+
+Gotchas we hit (all handled above): `cmake` missing from the Open5GS build; the WebUI +
+`mongo` pulls failing because the amd64 WebUI has no arm64 manifest (name the services to
+skip it); source configs using loopback and `db_uri: localhost` (the dockerize script fixes
+both); PFCP needing a real node_id (service-name bind, not `0.0.0.0`); and the core network
+being named `open5gs-core` (hyphen).
 
 ## Step 4 — Capture + detector on the DGX (the payoff)
 
