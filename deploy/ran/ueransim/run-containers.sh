@@ -16,7 +16,7 @@ down() {
 }
 
 up() {
-  NET="${CORE_NET:-$(docker network ls --format '{{.Name}}' | grep -E '_core$' | head -1)}"
+  NET="${CORE_NET:-$(docker network ls --format '{{.Name}}' | grep -E '[-_]core$' | head -1)}"
   [ -n "$NET" ] || { echo "core network not found — set CORE_NET=<name> (see: docker network ls)"; exit 1; }
   echo "[ran] image=$IMG  network=$NET"
   docker image inspect "$IMG" >/dev/null 2>&1 || { echo "[ran] building $IMG..."; docker build -t "$IMG" "$DIR"; }
