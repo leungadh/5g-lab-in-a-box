@@ -94,4 +94,29 @@ This is a **scaffold**. Configs and scripts are runnable stubs with TODO markers
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [`LICENSE`](LICENSE). This applies to the original work in this repository: the
+scripts, configurations, Dockerfiles, and documentation.
+
+## Third-party components & licenses
+
+This lab orchestrates several external projects; it does **not** redistribute their source or
+binaries — the Dockerfiles and scripts fetch and build them from their upstream sources. Each
+remains under its own license, and your use of them is governed by those licenses, not by this
+repository's MIT license:
+
+| Component | Role in the lab | License |
+|---|---|---|
+| [Open5GS](https://open5gs.org) | 5G SA core network functions | AGPL-3.0 |
+| [UERANSIM](https://github.com/aligungr/UERANSIM) | simulated gNB + UE (RAN) | GPL-3.0 |
+| Juniper **cSRX** | containerized SRX firewall (enhancement) | Proprietary (Juniper/HPE; requires a license) |
+| [MongoDB](https://www.mongodb.com) | Open5GS subscriber database | SSPL |
+
+The copyleft terms of Open5GS (AGPL-3.0) and UERANSIM (GPL-3.0) attach if you redistribute or
+build upon **their** code; this repository's own MIT-licensed files are separate from them. The
+Juniper cSRX image is proprietary and is never included here (it is git-ignored) — obtain it
+under your own Juniper/HPE license.
+
+> **Responsible use.** The MIT license governs copyright, not conduct. The attack scripts are
+> **lab-only** and guarded to target loopback / RFC-1918 addresses you own — see
+> [`docs/THREAT-MODEL.md`](docs/THREAT-MODEL.md). Do not point them at any network you are not
+> authorized to test.
