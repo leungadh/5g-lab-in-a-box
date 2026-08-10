@@ -36,3 +36,6 @@ infra/terraform/.terraform/
 firewall/images/
 *csrx*.tgz
 *csrx*.tar
+
+# private / not for the public repo
+/private/
