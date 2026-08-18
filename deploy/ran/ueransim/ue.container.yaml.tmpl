@@ -1,7 +1,10 @@
-# UERANSIM UE (container variant). ${GNB_IP} is filled in by entrypoint.sh from the
-# resolved 'gnb' container on the core network. supi/key/op/plmn/slice/apn mirror the
-# provisioned subscriber (.env defaults + dbctl add). Slice sst:1 (no sd) to match.
-supi: 'imsi-999700000000001'
+# UERANSIM UE (container variant). Filled in by entrypoint.sh:
+#   ${GNB_IP}  - resolved 'gnb' container on the core network
+#   ${UE_SUPI} - IMSI digits           (default 999700000000001)
+#   ${UE_APN}  - DNN                    (default internet)
+#   ${UE_SST}  - slice SST             (default 1)
+# Pass UE_SUPI / UE_APN / UE_SST as container env to place a UE on a different slice.
+supi: 'imsi-${UE_SUPI}'
 mcc: '999'
 mnc: '70'
 
@@ -33,14 +36,14 @@ uacAcc:
 
 sessions:
   - type: 'IPv4'
-    apn: 'internet'
+    apn: '${UE_APN}'
     slice:
-      sst: 1
+      sst: ${UE_SST}
 
 configured-nssai:
-  - sst: 1
+  - sst: ${UE_SST}
 default-nssai:
-  - sst: 1
+  - sst: ${UE_SST}
 
 integrity:
   IA1: true

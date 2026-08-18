@@ -19,9 +19,12 @@ case "$ROLE" in
   ue)
     GNB_IP="$(getent hosts "${GNB_HOST:-gnb}" | awk '{print $1}')"
     [ -n "$GNB_IP" ] || { echo "cannot resolve GNB_HOST=${GNB_HOST:-gnb} on this network"; exit 1; }
-    export GNB_IP
-    envsubst '${GNB_IP}' < /config/ue.container.yaml.tmpl > /tmp/ue.yaml
-    echo "[ue] GNB_IP=$GNB_IP"
+    UE_SUPI="${UE_SUPI:-999700000000001}"   # slice/DNN selectable per UE via env
+    UE_APN="${UE_APN:-internet}"
+    UE_SST="${UE_SST:-1}"
+    export GNB_IP UE_SUPI UE_APN UE_SST
+    envsubst '${GNB_IP} ${UE_SUPI} ${UE_APN} ${UE_SST}' < /config/ue.container.yaml.tmpl > /tmp/ue.yaml
+    echo "[ue] GNB_IP=$GNB_IP  SUPI=$UE_SUPI  APN=$UE_APN  SST=$UE_SST"
     exec nr-ue -c /tmp/ue.yaml
     ;;
   *)
