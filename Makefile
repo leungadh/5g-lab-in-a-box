@@ -7,10 +7,13 @@ COMPOSE := docker compose -f deploy/$(CORE)/docker-compose.yml --env-file deploy
 DURATION ?= 120
 ATTACK ?=
 OPEN5GS_IMAGE ?= gradiant/open5gs:2.7.5
+# --- DGX / all-Docker (arm64) settings ---
+CORE_NET ?= open5gs-core
+CORE_SVCS := mongo nrf scp amf ausf udm udr pcf bsf nssf smf upf
 
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap env configs up down provision-subscriber webui-admin ran-up ran-down smoke-test capture attack clean detector-synth detector-train
+.PHONY: help bootstrap env configs up down provision-subscriber webui-admin ran-up ran-down smoke-test capture attack clean detector-synth detector-train up-dgx ran-dgx ran-dgx-down lab-dgx-up lab-dgx-down
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -36,6 +39,11 @@ up: env ## Bring up the core network + WebUI (auto-creates .env)
 	@ls deploy/$(CORE)/configs/nrf.yaml >/dev/null 2>&1 || { echo "NF configs missing — run 'make configs' first (see docs/PLATFORM.md §7)"; exit 1; }
 	$(COMPOSE) up -d
 	@echo "Core '$(CORE)' starting. WebUI → http://localhost:9999  (login: admin / 1423)"
+
+up-dgx: env ## Bring up the arm64 core (all NFs EXCEPT the amd64 WebUI) — DGX / all-Docker
+	@ls deploy/$(CORE)/configs/nrf.yaml >/dev/null 2>&1 || { echo "NF configs missing — run 'make configs OPEN5GS_IMAGE=open5gs:arm64' first"; exit 1; }
+	$(COMPOSE) up -d $(CORE_SVCS)
+	@echo "arm64 core '$(CORE)' starting (WebUI skipped). Check: docker compose -f deploy/$(CORE)/docker-compose.yml ps"
 	@echo "If login fails with 'wrong password', run: make webui-admin"
 
 down: ## Stop the core network
@@ -52,6 +60,17 @@ ran-up: ## Start UERANSIM gNB then UE
 
 ran-down: ## Stop UERANSIM
 	./scripts/ran.sh down
+
+ran-dgx: ## Start containerized UERANSIM gNB + UE on the core network — DGX / all-Docker
+	CORE_NET=$(CORE_NET) ./deploy/ran/ueransim/run-containers.sh up
+
+ran-dgx-down: ## Stop the containerized gNB + UE
+	./deploy/ran/ueransim/run-containers.sh down
+
+lab-dgx-up: up-dgx ran-dgx ## DGX: bring up core + RAN, then check the UE data path
+	@sleep 4; echo "== data-path check =="; docker exec ue ping -c3 -I uesimtun0 8.8.8.8 || echo "(UE not passing traffic yet — check 'docker logs ue')"
+
+lab-dgx-down: ran-dgx-down down ## DGX: stop the containerized RAN, then the core
 
 smoke-test: ## Verify end-to-end data path (UE → N6)
 	./tests/smoke_test.sh
