@@ -6,6 +6,9 @@ and a combined roadmap. Detailed build steps live in the companion plans it link
 
 ---
 
+> **Status:** Phase **2A (network slicing) is BUILT and validated** on the DGX — two slices, two
+> UPFs, isolation proven. See [`2A_slicing_run.md`](2A_slicing_run.md). Phase 2B (MEC) is next.
+
 ## Feasibility verdict
 
 **Both are feasible, and both are additive** — the single-slice lab and the self-securing detector
