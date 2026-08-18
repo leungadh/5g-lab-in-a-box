@@ -1,0 +1,9 @@
+# SMF 'info' block — advertise both slices+DNNs to the NRF so the AMF can discover
+# the SMF for either slice. Add under 'smf:' in smf.yaml. Phase 2A.
+smf:
+  info:
+  - s_nssai:
+    - sst: 1
+      dnn: [internet]
+    - sst: 2
+      dnn: [iot]

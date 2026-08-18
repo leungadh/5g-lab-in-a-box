@@ -1,0 +1,10 @@
+# NSSF with both slices mapped to the (single) NRF. Phase 2A.
+# Note: the default NSI uri is loopback (127.0.0.10) — must be the 'nrf' service in docker.
+nssf:
+  sbi:
+    client:
+      nsi:
+      - uri: http://nrf:7777
+        s_nssai: { sst: 1 }
+      - uri: http://nrf:7777
+        s_nssai: { sst: 2 }

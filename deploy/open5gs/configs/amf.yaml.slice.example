@@ -1,0 +1,7 @@
+# AMF with two slices (SST=1 and SST=2) advertised in plmn_support. Phase 2A.
+amf:
+  plmn_support:
+  - plmn_id: { mcc: 999, mnc: 70 }
+    s_nssai:
+    - sst: 1
+    - sst: 2
