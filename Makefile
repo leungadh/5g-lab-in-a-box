@@ -9,7 +9,7 @@ ATTACK ?=
 OPEN5GS_IMAGE ?= gradiant/open5gs:2.7.5
 # --- DGX / all-Docker (arm64) settings ---
 CORE_NET ?= open5gs-core
-CORE_SVCS := mongo nrf scp amf ausf udm udr pcf bsf nssf smf upf
+CORE_SVCS := mongo nrf scp amf ausf udm udr pcf bsf nssf smf upf upf-iot
 
 .DEFAULT_GOAL := help
 

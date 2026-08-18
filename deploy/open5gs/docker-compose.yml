@@ -77,8 +77,8 @@ services:
     <<: *open5gs
     command: open5gs-smfd
     volumes: ["./configs/smf.yaml:/opt/open5gs/etc/open5gs/smf.yaml"]
-    # SMF's PFCP client resolves the 'upf' hostname at startup, so UPF must be up first.
-    depends_on: [scp, upf]
+    # SMF's PFCP client resolves the 'upf' hostnames at startup, so UPFs must be up first.
+    depends_on: [scp, upf, upf-iot]
 
   upf:
     <<: *open5gs
@@ -90,6 +90,22 @@ services:
     sysctls: ["net.ipv4.ip_forward=1"]
     ports: ["2152:2152/udp"]       # N3 (GTP-U) — capture/attacks attach here
     # UPF starts independently (it only listens for PFCP); the SMF connects to it.
+
+  # --- Phase 2A: second UPF for the IoT slice (DNN 'iot', 10.46.0.0/16) ---
+  # Same arm64 image; the entrypoint reads OGSTUN_ADDR/UE_SUBNET to set up ogstun + NAT.
+  # Its config is mounted at the default upf.yaml path so open5gs-upfd reads it.
+  # No host port — the containerized gNB reaches it by service name on the core network.
+  upf-iot:
+    <<: *open5gs
+    command: open5gs-upfd
+    privileged: true               # ogstun TUN device
+    environment:
+      - OGSTUN_ADDR=10.46.0.1/16   # slice B (iot) gateway
+      - UE_SUBNET=10.46.0.0/16     # slice B pool — egress NAT
+    volumes: ["./configs/upf-iot.yaml:/opt/open5gs/etc/open5gs/upf.yaml"]
+    cap_add: [NET_ADMIN]
+    devices: ["/dev/net/tun"]
+    sysctls: ["net.ipv4.ip_forward=1"]
 
   webui:
     image: ${OPEN5GS_WEBUI_IMAGE:-gradiant/open5gs-webui:2.7.5}
